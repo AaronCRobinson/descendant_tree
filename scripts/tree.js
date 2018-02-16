@@ -31,8 +31,7 @@ url = ck_api + kittyId.toString();
 $.getJSON(url, function(data) {
   //data is the JSON string
   tree = {
-      // NOTE: consider packing data in this value... gen?
-      'name': data['name'],
+    'name': data['name'],
     'bio': data['bio'],
     'image': data['image_url'],
     'children': getChildren(data)
@@ -47,7 +46,6 @@ function checkIfDone(){
     setTimeout(checkIfDone,500);
   }
   else
-    console.log("BANG BANG BANG!!!");
     drawTree(tree);
 }
 
