@@ -82,7 +82,7 @@ function checkIfDone(){
   else
     drawTree(publicTree);
 }
-checkIfDone();
+//checkIfDone();
 
 function drawTree(treeData) {
 
