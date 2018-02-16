@@ -9,6 +9,7 @@ var kittyId = prompt("Please enter the kitty id: ", "101");
 
 function getChildren(parent) {
     children = [];
+    console.log("getting children...");
 
     parent['children'].forEach(function(child){
       url = ck_api + child['id'].toString();
