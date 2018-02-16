@@ -1,19 +1,19 @@
 //var jsonPath = "json/" + location.hash.split('#')[1] + ".json";
 
 var publicTree;
-var running = 1; // number of running asynchronous functions
+//var running = 1; // number of running asynchronous functions
 
 ck_api = 'https://api.cryptokitties.co/kitties/'
 
 var kittyId = prompt("Please enter the kitty id: ", "101");
 
-function decrementCnt() {
+/*function decrementCnt() {
     setTimeout( () => { running--; }, 1000);
-}
+}*/
 
 function getChildren(parent) {
-    children = [];
-
+    var children = [];
+    var running = 0;
     parent['children'].forEach(function(child){
       url = ck_api + child['id'].toString();
       running++;
@@ -25,7 +25,7 @@ function getChildren(parent) {
           'image': data['image_url'],
           'children': getChildren(data)
         });
-        decrementCnt();
+        running--;
       })
     });
 
@@ -34,7 +34,12 @@ function getChildren(parent) {
         if (running > 0)
           setTimeout(checkIfDone,500);
         else
-          return children;
+        {
+            console.log("Returning children:");
+            console.log(children);
+            return children;
+        }
+
     }
 
     return checkIfDone();
@@ -83,7 +88,8 @@ function checkIfDone(){
     setTimeout(checkIfDone,500);
   }
   else
-    drawTree(publicTree);
+    console.log("BANG BANG BANG!!!");
+    //drawTree(publicTree);
 }
 checkIfDone();
 
