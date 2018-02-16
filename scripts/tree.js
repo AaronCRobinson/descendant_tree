@@ -1,9 +1,10 @@
 var ck_api = 'https://api.cryptokitties.co/kitties/'
-var kittyId = prompt("Please enter the kitty id: ", "101");
-var lastActivity = getTimeSamp();
 
 getTimeSamp = () => Math.floor(Date.now());
 stillActive = () => getTimeSamp()-lastActivity<30000;
+
+var kittyId = prompt("Please enter the kitty id: ", "101");
+var lastActivity = getTimeSamp();
 
 function getChildren(parent) {
     var children = [];
