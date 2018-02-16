@@ -13,15 +13,15 @@ function getChildren(parent) {
     parent['children'].forEach(function(child){
       url = ck_api + child['id'].toString();
       $.getJSON(url, function(data) {
-      children.push({
-        // NOTE: consider packing data in this value... gen?
-        'name': data['name'],
-        'bio': data['bio'],
-        'image': data['image_url'],
-        'children': getChildren(data)
-      });
+        children.push({
+          // NOTE: consider packing data in this value... gen?
+          'name': data['name'],
+          'bio': data['bio'],
+          'image': data['image_url'],
+          'children': getChildren(data)
+        });
+      }).error(function() { alert("error"); });
     });
-  });
 
   return children;
 }
