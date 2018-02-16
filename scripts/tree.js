@@ -29,7 +29,15 @@ function getChildren(parent) {
       })
     });
 
-  return children;
+    function checkIfDone()
+    {
+        if (running > 0)
+          setTimeout(checkIfDone,500);
+        else
+          return children;
+    }
+
+    return checkIfDone();
 }
 
 // START: with first
@@ -68,12 +76,11 @@ $.getJSON(url, function(data) {
   parseTree(publicTree);
   running--;
 });*/
-var prev = false;
 function checkIfDone(){
   if (running > 0)
   {
     console.log(publicTree);
-    setTimeout(checkIfDone,250);
+    setTimeout(checkIfDone,500);
   }
   else
     drawTree(publicTree);
