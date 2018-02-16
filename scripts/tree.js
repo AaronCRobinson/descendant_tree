@@ -8,7 +8,7 @@ ck_api = 'https://api.cryptokitties.co/kitties/'
 var kittyId = prompt("Please enter the kitty id: ", "101");
 
 function decrementCnt() {
-    setTimeout( () => { running--; }, 250);
+    setTimeout( () => { running--; }, 1000);
 }
 
 function getChildren(parent) {
