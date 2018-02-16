@@ -40,9 +40,9 @@ $.getJSON(url, function(data) {
   };
 
   // do something with tree
-  console.log(publicTree);
+  //console.log(publicTree);
   parseTree(publicTree);
-  //running--; // should this be kept?
+  running--; // should this be kept?
 });
 
 function parseTree (tree, replace) {
@@ -67,15 +67,21 @@ function parseTree (tree, replace) {
   parseTree(publicTree);
   running--;
 });*/
-
-
+var prev = false;
 function checkIfDone(){
-  if (running > 0)
-    setTimeout(checkIfDone,100);
-  else
-    drawTree(publicTree);
+  if (running > 0) {
+    prev = false;
+    setTimeout(checkIfDone,250);
+  } else {
+    if (prev)
+        drawTree(publicTree);
+    else {
+        prev = true;
+        setTimeout(checkIfDone,250);
+    }
+  }
 }
-checkIfDone();
+setTimeout(checkIfDone,250);
 
 function drawTree(treeData) {
 
