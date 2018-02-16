@@ -1,63 +1,54 @@
-//var jsonPath = "json/" + location.hash.split('#')[1] + ".json";
-
-var publicTree;
-//var running = 1; // number of running asynchronous functions
-
-ck_api = 'https://api.cryptokitties.co/kitties/'
-
+var ck_api = 'https://api.cryptokitties.co/kitties/'
 var kittyId = prompt("Please enter the kitty id: ", "101");
+var lastActivity = getTimeSamp();
 
-/*function decrementCnt() {
-    setTimeout( () => { running--; }, 1000);
-}*/
+getTimeSamp = () => Math.floor(Date.now());
+stillActive = () => getTimeSamp()-lastActivity<30000;
 
 function getChildren(parent) {
     var children = [];
-    var running = 0;
+
     parent['children'].forEach(function(child){
       url = ck_api + child['id'].toString();
-      running++;
       $.getJSON(url, function(data) {
-        children.push({
-          // NOTE: consider packing data in this value... gen?
-          'name': data['name'],
-          'bio': data['bio'],
-          'image': data['image_url'],
-          'children': getChildren(data)
-        });
-        running--;
-      })
+      lastActivity = getTimeSamp();
+      children.push({
+        'name': (data['name'] == null) ? "Kitty #" + data['id'] : data['name'],
+        'bio': data['bio'],
+        'image': data['image_url'],
+        'children': getChildren(data)
+      });
     });
+  });
 
-    function checkIfDone()
-    {
-        if (running > 0)
-          setTimeout(checkIfDone,500);
-        else
-        {
-            console.log("Returning children:");
-            console.log(children);
-            return children;
-        }
-
-    }
-
-    return checkIfDone();
+  return children; //NOTE: will be updated
 }
 
+var tree;
 // START: with first
 url = ck_api + kittyId.toString();
 $.getJSON(url, function(data) {
   //data is the JSON string
-  publicTree = {
+  tree = {
       // NOTE: consider packing data in this value... gen?
       'name': data['name'],
     'bio': data['bio'],
     'image': data['image_url'],
     'children': getChildren(data)
   };
-  decrementCnt();
-})
+  checkIfDone();
+});
+
+function checkIfDone(){
+  if (stillActive())
+  {
+    console.log(tree);
+    setTimeout(checkIfDone,500);
+  }
+  else
+    console.log("BANG BANG BANG!!!");
+    drawTree(publicTree);
+}
 
 /*function parseTree (tree, replace) {
   if (typeof replace != "undefined") {
@@ -81,17 +72,6 @@ $.getJSON(url, function(data) {
   parseTree(publicTree);
   running--;
 });*/
-function checkIfDone(){
-  if (running > 0)
-  {
-    console.log(publicTree);
-    setTimeout(checkIfDone,500);
-  }
-  else
-    console.log("BANG BANG BANG!!!");
-    //drawTree(publicTree);
-}
-checkIfDone();
 
 function drawTree(treeData) {
 
