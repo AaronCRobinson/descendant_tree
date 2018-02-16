@@ -45,20 +45,19 @@ body {
 .overlay{
     background-color: #F7F4F0;
 }
- 
+
 .node circle {
   fill: #fff;
   stroke: #E6E2DD;
   stroke-width: 1.5px;
 }
- 
+
 .node text {
-  font-size:11px; 
-  font-weight: bold;
+  font-size: 8px;
   font-family: "Georgia";
   color: #4D3636;
 }
- 
+
 .link {
   fill: none;
   stroke: #E6E2DD;
