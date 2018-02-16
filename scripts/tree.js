@@ -42,7 +42,7 @@ $.getJSON(url, function(data) {
   // do something with tree
   console.log(publicTree);
   parseTree(publicTree);
-  running--; // should this be kept?
+  //running--; // should this be kept?
 });
 
 function parseTree (tree, replace) {
