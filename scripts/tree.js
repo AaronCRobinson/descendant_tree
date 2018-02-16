@@ -7,6 +7,10 @@ ck_api = 'https://api.cryptokitties.co/kitties/'
 
 var kittyId = prompt("Please enter the kitty id: ", "101");
 
+function decrementCnt() {
+    setTimeout( () => { running--; }, 250);
+}
+
 function getChildren(parent) {
     children = [];
     console.log("getting children...");
@@ -42,7 +46,7 @@ $.getJSON(url, function(data) {
   // do something with tree
   //console.log(publicTree);
   parseTree(publicTree);
-  running--; // should this be kept?
+  decrementCnt();
 });
 
 function parseTree (tree, replace) {
@@ -52,7 +56,7 @@ function parseTree (tree, replace) {
   } else if (tree.source) {
     running++;
     d3.json(tree.source, function(error, treeData) {
-      running--;
+        decrementCnt();
       parseTree(treeData, tree);
     });
   } else if (tree.children) {
@@ -69,19 +73,15 @@ function parseTree (tree, replace) {
 });*/
 var prev = false;
 function checkIfDone(){
-  if (running > 0) {
-    prev = false;
+  if (running > 0)
+  {
+    console.log("running...");
     setTimeout(checkIfDone,250);
-  } else {
-    if (prev)
-        drawTree(publicTree);
-    else {
-        prev = true;
-        setTimeout(checkIfDone,250);
-    }
   }
+  else
+    drawTree(publicTree);
 }
-setTimeout(checkIfDone,250);
+checkIfDone();
 
 function drawTree(treeData) {
 
