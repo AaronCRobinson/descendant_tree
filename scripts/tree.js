@@ -1,6 +1,6 @@
 //var jsonPath = "json/" + location.hash.split('#')[1] + ".json";
 
-//var publicTree;
+var publicTree;
 var running = 1; // number of running asynchronous functions
 
 ck_api = 'https://api.cryptokitties.co/kitties/'
@@ -30,7 +30,7 @@ function getChildren(parent) {
 url = ck_api + kittyId.toString();
 $.getJSON(url, function(data) {
   //data is the JSON string
-  var tree = {
+  publicTree = {
       // NOTE: consider packing data in this value... gen?
       'name': data['name'],
     'bio': data['bio'],
@@ -39,8 +39,8 @@ $.getJSON(url, function(data) {
   };
 
   // do something with tree
-  console.log(tree);
-  parseTree(tree);
+  console.log(publicTree);
+  parseTree(publicTree);
   running--; // should this be kept?
 });
 
