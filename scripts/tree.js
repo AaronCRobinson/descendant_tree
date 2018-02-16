@@ -48,7 +48,7 @@ function checkIfDone(){
   }
   else
     console.log("BANG BANG BANG!!!");
-    drawTree(publicTree);
+    drawTree(tree);
 }
 
 /*function parseTree (tree, replace) {
