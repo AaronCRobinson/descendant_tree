@@ -1,7 +1,48 @@
-var jsonPath = "json/" + location.hash.split('#')[1] + ".json";
+//var jsonPath = "json/" + location.hash.split('#')[1] + ".json";
 
-var publicTree;
+//var publicTree;
 var running = 1; // number of running asynchronous functions
+
+ck_api = 'https://api.cryptokitties.co/kitties/'
+
+var kittyId = prompt("Please enter the kitty id: ", "101");
+
+function getChildren(parent) {
+    children = [];
+
+    parent['children'].forEach(function(child){
+      url = ck_api + child['id'].toString();
+      $.getJSON(url, function(data) {
+      children.push({
+        // NOTE: consider packing data in this value... gen?
+        'name': data['name'],
+        'bio': data['bio'],
+        'image': data['image_url'],
+        'children': getChildren(data)
+      });
+    });
+  });
+
+  return children;
+}
+
+// START: with first
+url = ck_api + kittyId.toString();
+$.getJSON(url, function(data) {
+  //data is the JSON string
+  var tree = {
+      // NOTE: consider packing data in this value... gen?
+      'name': data['name'],
+    'bio': data['bio'],
+    'image': data['image_url'],
+    'children': getChildren(data)
+  };
+
+  // do something with tree
+  console.log(tree);
+  parseTree(tree);
+  running--; // should this be kept?
+});
 
 function parseTree (tree, replace) {
   if (typeof replace != "undefined") {
@@ -20,11 +61,11 @@ function parseTree (tree, replace) {
   }
 }
 
-d3.json(jsonPath, function(error, treeData) {
+/*d3.json(jsonPath, function(error, treeData) {
   publicTree = treeData;
   parseTree(publicTree);
   running--;
-});
+});*/
 
 
 function checkIfDone(){
@@ -54,7 +95,7 @@ function drawTree(treeData) {
     // size of the diagram
     var viewerWidth = $(document).width();
     var viewerHeight = $(document).height();
-     
+
     var tree = d3.layout.tree().size([viewerHeight, viewerWidth]);
 
     // define a d3 diagonal projection for use by the node paths later on.
@@ -208,7 +249,7 @@ function drawTree(treeData) {
             }
         };
         childCount(0, root);
-        var newHeight = d3.max(levelWidth) * 70; // 70 pixels per line  
+        var newHeight = d3.max(levelWidth) * 70; // 70 pixels per line
         tree = tree.size([newHeight, viewerWidth]);
 
         // Compute the new tree layout.
@@ -220,9 +261,9 @@ function drawTree(treeData) {
           if (d.depth > maxDepth)
             maxDepth = d.depth;
           if (vertical)
-            d.y = (d.depth * (maxLabelLength * 5)); 
+            d.y = (d.depth * (maxLabelLength * 5));
           else
-            d.y = (d.depth * (maxLabelLength * 8)); 
+            d.y = (d.depth * (maxLabelLength * 8));
         });
 
         // Update the nodes…
@@ -251,7 +292,7 @@ function drawTree(treeData) {
 
         if (vertical) {
           nodeEnter.append("text")
-            .attr("y", function(d) { 
+            .attr("y", function(d) {
              return d.children || d._children ? -18 : 18; })
             .attr("dy", ".35em")
             .attr("text-anchor", "middle")
