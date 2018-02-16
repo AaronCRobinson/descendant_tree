@@ -13,10 +13,10 @@ function decrementCnt() {
 
 function getChildren(parent) {
     children = [];
-    console.log("getting children...");
 
     parent['children'].forEach(function(child){
       url = ck_api + child['id'].toString();
+      running++;
       $.getJSON(url, function(data) {
         children.push({
           // NOTE: consider packing data in this value... gen?
@@ -25,7 +25,8 @@ function getChildren(parent) {
           'image': data['image_url'],
           'children': getChildren(data)
         });
-      }).error(function() { alert("error"); });
+        decrementCnt();
+      })
     });
 
   return children;
@@ -42,23 +43,10 @@ $.getJSON(url, function(data) {
     'image': data['image_url'],
     'children': getChildren(data)
   };
-
-  // do something with tree
-  console.log(publicTree);
-  drawTree(publicTree);
-  //parseTree(publicTree);
   decrementCnt();
-}).done(function() {
-    console.log( "second success" );
-  })
-  .fail(function() {
-    console.log( "error" );
-  })
-  .always(function() {
-    console.log( "complete" );
-  });
+})
 
-function parseTree (tree, replace) {
+/*function parseTree (tree, replace) {
   if (typeof replace != "undefined") {
     replace.children = tree.children;
     parseTree(tree);
@@ -73,7 +61,7 @@ function parseTree (tree, replace) {
       parseTree(this);
     });
   }
-}
+}*/
 
 /*d3.json(jsonPath, function(error, treeData) {
   publicTree = treeData;
@@ -84,13 +72,13 @@ var prev = false;
 function checkIfDone(){
   if (running > 0)
   {
-    console.log("running...");
+    console.log(publicTree);
     setTimeout(checkIfDone,250);
   }
   else
     drawTree(publicTree);
 }
-//checkIfDone();
+checkIfDone();
 
 function drawTree(treeData) {
 
