@@ -48,7 +48,15 @@ $.getJSON(url, function(data) {
   drawTree(publicTree);
   //parseTree(publicTree);
   decrementCnt();
-});
+}).done(function() {
+    console.log( "second success" );
+  })
+  .fail(function() {
+    console.log( "error" );
+  })
+  .always(function() {
+    console.log( "complete" );
+  });
 
 function parseTree (tree, replace) {
   if (typeof replace != "undefined") {
