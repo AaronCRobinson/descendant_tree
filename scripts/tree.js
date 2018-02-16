@@ -44,8 +44,9 @@ $.getJSON(url, function(data) {
   };
 
   // do something with tree
-  //console.log(publicTree);
-  parseTree(publicTree);
+  console.log(publicTree);
+  drawTree(publicTree);
+  //parseTree(publicTree);
   decrementCnt();
 });
 
@@ -56,7 +57,7 @@ function parseTree (tree, replace) {
   } else if (tree.source) {
     running++;
     d3.json(tree.source, function(error, treeData) {
-        decrementCnt();
+      decrementCnt();
       parseTree(treeData, tree);
     });
   } else if (tree.children) {
