@@ -7,6 +7,62 @@ stillActive = () => getTimeSamp()-lastActivity<timeout;
 var kittyId = prompt("Please enter the kitty id: ", "101");
 var lastActivity = getTimeSamp();
 
+function cooldownStr(cooldown) {
+    switch (cooldown) {
+        case 1:
+            return "Fast (1 min)";
+        case 2:
+            return "Swift (2 min)";
+        case 3:
+            return "Swift (5 min)";
+        case 4:
+            return "Snappy (10 min)";
+        case 5:
+            return "Snappy (30 min)";
+        case 6:
+            return "Brisk (1 hour)";
+        case 7:
+            return "Brisk (2 hours)";
+        case 8:
+            return "Plodding (4 hours)";
+        case 9:
+            return "Plodding (8 hours)";
+        case 10:
+            return "Slow (16 hours)";
+        case 11:
+            return "Slow (24 hours)";
+        case 12:
+            return "Sluggish (2 days)";
+        case 13:
+            return "Sluggish (4 days)";
+        case 14:
+            return "Catatonic (1 week)";
+    }
+}
+
+// create entry for our tree
+function buildNode(data)
+{
+    return {
+        'id': data['id'],
+        'name': (data['name'] == null) ? "Kitty #" + data['id'] : data['name'],
+        'bio': generateBio(data),
+        'generation': data['generation'],
+        'image': data['image_url'],
+        'children': getChildren(data)
+    }
+}
+
+// TODO: make better...
+function generateBio(data) {
+    var birthday = new Date(data['created_at']).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+    var bio = `<div style="width:100%;margin-bottom:8px;"><div style="float: left; width: 250px;">Birthday: ${birthday}</div> <div>Cooldown: ${cooldownStr(data['status']['cooldown_index'])}</div></div>`
+    bio += `<div>${data['bio']}</div>`;
+    var geneLink = `https://kittycalc.co/read/?k1=${data['id']}&k2=1`
+    // NOTE: use div for link?
+    return bio + `<div id="links"><a href="${geneLink}" target="_blank"><img class="kittycalc" src="images/kittycalc.png"></a></div>`;
+}
+
 function getChildren(parent) {
     var children = [];
     lastActivity = getTimeSamp();
@@ -14,12 +70,7 @@ function getChildren(parent) {
       url = ck_api + child['id'].toString();
       $.getJSON(url, function(data) {
 
-      children.push({
-        'name': (data['name'] == null) ? "Kitty #" + data['id'] : data['name'],
-        'bio': data['bio'],
-        'image': data['image_url'],
-        'children': getChildren(data)
-      });
+      children.push(buildNode(data));
     });
   });
 
@@ -33,12 +84,7 @@ $( document ).ready(function() {
     drawTree(tree);
     $.getJSON(url, function(data) {
     //data is the JSON string
-    tree = {
-        'name': data['name'],
-        'bio': data['bio'],
-        'image': data['image_url'],
-        'children': getChildren(data)
-    };
+    tree = buildNode(data);
     checkIfDone();
     });
 });
@@ -62,6 +108,7 @@ var i = 0;
 var maxDepth = 0;
 var maxLabelLength = 25;
 var transitionDuration = 250;
+var first = true;
 var vertical = false;
 var diagonal, zoomListener;
 var viewerWidth, viewerHeight;
@@ -103,29 +150,38 @@ function drawTree(treeData) {
     setRoot(treeData);
 
     // Layout the tree initially and center on the root node.
-    updateAndCenter(root);
+    //updateAndCenter(root);
 
     // Show biography and picture on hover
     $("body").hoverIntent({
       over: function() {
         var bio = $(this).attr("title");
         var img = $(this).attr("href");
-        $("#bio").html("<img src='"+ $(this).attr("href") + "'>" + bio)
+        var kid = $(this).attr("kid");
+        $("#bio").html(`<div id="kittypic"><a href="https://www.cryptokitties.co/kitty/${kid}"><img src="${img}"></a></div> <div id="biotext">${bio}</div>`)
                  .addClass("has-image")
                  .fadeIn("fast");
       },
-      out: function() {
+      // TODO: fadeOut...
+      /*out: function() {
         $("#bio").fadeOut("fast");
-      },
+      },*/
       selector: ".node image"
     });
 }
 
 function setRoot(treeData) {
-    // Define the root
+    // Define (or update) the root
     var temp = Object.assign({}, treeData);
-    temp.x0 = viewerHeight / 2;
-    temp.y0 = 0;
+    if (root) {
+        temp.x = root.x;
+        temp.y = root.y;
+        temp.x0 = root.x0;
+        temp.y0 = root.y0;
+    } else {
+        temp.x0 = viewerHeight / 2;
+        temp.y0 = 0;
+    }
     root = temp;
 }
 
@@ -169,12 +225,7 @@ function update(source) {
     });
 
     // Update the nodes…
-    node = svgGroup.selectAll("g.node")
-                   .data(nodes, function(d) {
-                     return d.id || (d.id = ++i);
-                   });
-
-    console.log(node);
+    node = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
 
     // Enter any new nodes at the parent's previous position.
     var nodeEnter = node.enter().append("g")
@@ -194,17 +245,13 @@ function update(source) {
                return d._children ? "lightsteelblue" : "#fff";
              });
 
-    function englishName (d) {
-        return d["english-name"] ? d["english-name"] : d.name;
-    }
-
     if (vertical) {
       nodeEnter.append("text")
         .attr("y", function(d) {
          return d.children || d._children ? -18 : 18; })
         .attr("dy", ".35em")
         .attr("text-anchor", "middle")
-        .text(function(d) { return englishName(d); })
+        .text( (d) => d.name )
         .style("fill-opacity", 1);
     } else {
       nodeEnter.append("text")
@@ -213,12 +260,8 @@ function update(source) {
           })
           .attr("dy", ".35em")
           .attr('class', 'nodeText')
-          .attr("text-anchor", function(d) {
-            return "end";
-          })
-          .text(function(d) {
-            return englishName(d);
-          })
+          .attr("text-anchor",  (d) => "end")
+          .text( (d) => d.name )
           .style("fill-opacity", 0);
     }
 
@@ -234,6 +277,7 @@ function update(source) {
     // append an image if one exists
     nodeEnter.append("image")
              .attr('title', '')
+             .attr('kid', '')
              .attr("xlink:href", "")
              .attr("x", -25)
              .attr("y", -25)
@@ -245,7 +289,7 @@ function update(source) {
         .attr('class', 'ghostCircle')
         .attr("r", 30)
         .attr("opacity", 0.2) // change this to zero to hide the target area
-    .style("fill", "red")
+        .style("fill", "red")
         .attr('pointer-events', 'mouseover')
         .on("mouseover", function(node) {
             overCircle(node);
@@ -260,9 +304,8 @@ function update(source) {
       else
         return "https://www.cryptokitties.co/images/kitty-love-3.svg";
     });
-    node.select('image').attr("title", function(d) {
-      return "<strong>" + englishName(d) + "</strong>. " + (d.bio ? d.bio : "");
-    });
+    node.select('image').attr("title", (d) => d.bio ? d.bio : "");
+    node.select('image').attr("kid", (d) => d.id);
 
     // Update the text to reflect whether node has children or not.
     node.select('text')
@@ -274,9 +317,7 @@ function update(source) {
             //return d.children || d._children ? "end" : "start";
             return "end";
         })
-        .text(function(d) {
-            return englishName(d);
-        });
+        .text( (d) => d.name );
 
     // Change the circle fill depending on whether it has children and is collapsed
     node.select("circle.nodeCircle")
@@ -289,7 +330,6 @@ function update(source) {
     var nodeUpdate = node.transition()
         .duration(transitionDuration)
         .attr("transform", function(d) {
-            console.log("update");
             if (vertical)
               return "translate(" + d.x + "," + d.y + ")";
             else
@@ -312,7 +352,7 @@ function update(source) {
     nodeExit.select("text").style("fill-opacity", 0);
 
     // Update the links…
-    var link = svgGroup.selectAll("path.link").data(links, function(d) { return d.target.id; });
+    var link = svgGroup.selectAll("path.link").data(links, (d) => d.target.id );
 
     // Enter any new links at the parent's previous position.
     link.enter().insert("path", "g")

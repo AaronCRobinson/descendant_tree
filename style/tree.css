@@ -6,8 +6,7 @@ body {
   position: absolute;
   top:0;
   left: 0;
-  z-index: 99;
-  padding: 25px;
+  z-index: 90;
   font-family: "Georgia";
   font-size: 18px;
   max-width: 850px;
@@ -17,20 +16,32 @@ body {
   color: white;
   display: none;
   box-sizing: border-box;
-  pointer-events:none;
+  /*pointer-events:none;*/
+}
+
+#biotext {
+  z-index: 99;
+  margin-left: 250px;
+  margin-top: 15px;
+  padding: 25px 25px 35px;
 }
 
 #bio.has-image {
-  padding-left: 210px;
   min-height: 175px;
 }
 
-#bio img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 175px;
-  width: 175px;
+/*#bio img {*/
+#kittypic {
+  float: left;
+  height: 250px;
+  width: 250px;
+}
+
+#kittypic img {
+  height: 300px;
+  width: 300px;
+  margin-top: -35px;
+  margin-left: -35px;
 }
 
 #bio a {
@@ -73,3 +84,34 @@ body {
      display: none;
 }
 
+/* ACR: extra changes */
+
+body {
+  overflow:hidden;
+}
+
+#donations {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 99;
+  padding: 6px;
+  font-family: "Georgia";
+  font-size: 13px;
+  max-width: 850px;
+  line-height: 1.4;
+  text-align: justify;
+  background:rgba(0,0,0,.8);
+  color: white;
+  box-sizing: border-box;
+  pointer-events:none;
+}
+
+#links {
+  float: right;
+  padding-top: 2px;
+}
+
+.kittycalc {
+  height: 40px;
+}
