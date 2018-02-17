@@ -1,11 +1,21 @@
 var ck_api = 'https://api.cryptokitties.co/kitties/';
-var timeout = 500;
+var activityTimeout = 31500;
+var updatePeriod = 500;
 
-getTimeSamp = () => Math.floor(Date.now());
-stillActive = () => getTimeSamp()-lastActivity<timeout;
+getTimeStamp = () => Math.floor(Date.now());
+growl429 = () => {$.growlUI('Still fetching kitties', 'Please be patient!'); console.log("429 error");}
+
+var prevActivity = false;
+stillActive = () => {
+    var curActivity = getTimeStamp() - lastActivity < activityTimeout;
+    var activity = (curActivity || prevActivity);
+    prevActivity = curActivity;
+    return activity;
+}
 
 var kittyId = prompt("Please enter the kitty id: ", "101");
-var lastActivity = getTimeSamp();
+var kittyCnt = 0;
+var lastActivity = getTimeStamp();
 
 function cooldownStr(cooldown) {
     switch (cooldown) {
@@ -47,7 +57,6 @@ function buildNode(data)
         'id': data['id'],
         'name': (data['name'] == null) ? "Kitty #" + data['id'] : data['name'],
         'bio': generateBio(data),
-        'generation': data['generation'],
         'image': data['image_url'],
         'children': getChildren(data)
     }
@@ -56,7 +65,7 @@ function buildNode(data)
 // TODO: make better...
 function generateBio(data) {
     var birthday = new Date(data['created_at']).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
-    var bio = `<div style="width:100%;margin-bottom:8px;"><div style="float: left; width: 250px;">Birthday: ${birthday}</div> <div>Cooldown: ${cooldownStr(data['status']['cooldown_index'])}</div></div>`
+    var bio = `<div id="stats"><div class="stats">Birthday: ${birthday}</div> <div class="stats">Gen: ${data['generation']}</div> <div class="stats">Cooldown: ${cooldownStr(data['status']['cooldown_index'])}</div></div>`
     bio += `<div>${data['bio']}</div>`;
     var geneLink = `https://kittycalc.co/read/?k1=${data['id']}&k2=1`
     // NOTE: use div for link?
@@ -65,38 +74,64 @@ function generateBio(data) {
 
 function getChildren(parent) {
     var children = [];
-    lastActivity = getTimeSamp();
-    parent['children'].forEach(function(child){
-      url = ck_api + child['id'].toString();
-      $.getJSON(url, function(data) {
+    lastActivity = getTimeStamp();
 
-      children.push(buildNode(data));
-    });
-  });
+    function fetchChildData(child){
+        var url = ck_api + child['id'].toString();
+        function fetch() {
+            $.getJSON(url, function(data) { children.push(buildNode(data)); })
+             .fail(function( jqxhr, textStatus, error ) {
+                if (jqxhr.status == 429) { // Too Many Requests
+                    lastActivity = getTimeStamp() + 61000;
+                    growl429();
+                    setTimeout(fetch, 61000);
+                } else if (jqxhr.status == 500) { // Internal error
+                    setTimeout(fetch, 500);
+                } else {
+                    console.log(jqxhr);
+                }
+             })
+             .done(() => kittyCnt++);
+        }
+        fetch();
+    }
 
-  return children; //NOTE: will be updated
+    parent['children'].forEach((child) => fetchChildData(child));
+    return children; //NOTE: will be updated
 }
 
 var tree;
-$( document ).ready(function() {
-    // START: with first
-    url = ck_api + kittyId.toString();
+var updateLoop;
+$(document).ready(function() {
     drawTree(tree);
+
+    var url = ck_api + kittyId.toString();
     $.getJSON(url, function(data) {
-    //data is the JSON string
-    tree = buildNode(data);
-    checkIfDone();
+        //data is the JSON string
+        tree = buildNode(data);
+        updateLoop = setTimeout(treeUpdateLoop, updatePeriod);
+        checkIfDone();
     });
 });
+
+function treeUpdateLoop() {
+    console.log(`Kitty count: ${kittyCnt}`);
+    setRoot(tree);
+    update(root);
+    updateLoop = setTimeout(treeUpdateLoop, updatePeriod); // NOTE: use updateLoop?
+}
 
 function checkIfDone() {
   if (stillActive())
   {
-    setRoot(tree);
-    updateAndCenter(root);
-    setTimeout(checkIfDone, timeout);
+    setTimeout(checkIfDone, activityTimeout);
   }
-
+  else
+  {
+    clearTimeout(updateLoop);
+    //alert("ALL DONE!");
+    //console.log("BANG! BANG! BANG! ALL DONE!");
+  }
 }
 
 // Here lies modified descendant_tree code
@@ -106,8 +141,8 @@ var svgGroup
 // Misc. variables
 var i = 0;
 var maxDepth = 0;
-var maxLabelLength = 25;
-var transitionDuration = 250;
+var maxLabelLength = 28;
+var transitionDuration = 350;
 var first = true;
 var vertical = false;
 var diagonal, zoomListener;
@@ -150,7 +185,7 @@ function drawTree(treeData) {
     setRoot(treeData);
 
     // Layout the tree initially and center on the root node.
-    //updateAndCenter(root);
+    updateAndCenter(root);
 
     // Show biography and picture on hover
     $("body").hoverIntent({
@@ -158,11 +193,12 @@ function drawTree(treeData) {
         var bio = $(this).attr("title");
         var img = $(this).attr("href");
         var kid = $(this).attr("kid");
-        $("#bio").html(`<div id="kittypic"><a href="https://www.cryptokitties.co/kitty/${kid}"><img src="${img}"></a></div> <div id="biotext">${bio}</div>`)
+        $("#bio").html(`<div id="kittypic"><a href="https://www.cryptokitties.co/kitty/${kid}" target="_blank"><img src="${img}"></a></div> <div id="biotext">${bio}</div>`)
                  .addClass("has-image")
                  .fadeIn("fast");
       },
       // TODO: fadeOut...
+      out: () => {}, // NOTE: eats some errors
       /*out: function() {
         $("#bio").fadeOut("fast");
       },*/
@@ -170,9 +206,11 @@ function drawTree(treeData) {
     });
 }
 
+deepClone = (o) => (o == undefined) ? {} : JSON.parse(JSON.stringify(o));
+
 function setRoot(treeData) {
     // Define (or update) the root
-    var temp = Object.assign({}, treeData);
+    var temp = deepClone(treeData);
     if (root) {
         temp.x = root.x;
         temp.y = root.y;
@@ -214,14 +252,17 @@ function update(source) {
     var nodes = d3tree.nodes(root).reverse(),
         links = d3tree.links(nodes);
 
-    // Set widths between levels based on maxLabelLength.
+    // Set widths & heights between levels based on maxLabelLength.
     nodes.forEach(function(d) {
       if (d.depth > maxDepth)
         maxDepth = d.depth;
-      if (vertical)
+      if (vertical) {
         d.y = (d.depth * (maxLabelLength * 5));
-      else
+        d.x *= 3;
+      } else {
         d.y = (d.depth * (maxLabelLength * 8));
+        d.x *= 3;
+      }
     });
 
     // Update the nodes…
@@ -247,20 +288,17 @@ function update(source) {
 
     if (vertical) {
       nodeEnter.append("text")
-        .attr("y", function(d) {
-         return d.children || d._children ? -18 : 18; })
+        .attr("y", (d) => d.children || d._children ? -18 : 18 )
         .attr("dy", ".35em")
         .attr("text-anchor", "middle")
         .text( (d) => d.name )
         .style("fill-opacity", 1);
     } else {
       nodeEnter.append("text")
-          .attr("x", function(d) {
-            return -20;
-          })
+          .attr("x", -35)
           .attr("dy", ".35em")
           .attr('class', 'nodeText')
-          .attr("text-anchor",  (d) => "end")
+          .attr("text-anchor", "end")
           .text( (d) => d.name )
           .style("fill-opacity", 0);
     }
@@ -279,15 +317,48 @@ function update(source) {
              .attr('title', '')
              .attr('kid', '')
              .attr("xlink:href", "")
-             .attr("x", -25)
-             .attr("y", -25)
-             .attr("width", 50)
-             .attr("height", 50);
+             .attr("x", -40)
+             .attr("y", -42)
+             .attr("width", 85)
+             .attr("height", 85);
+
+    // TODO: connect more data
+    // append an image if one exists
+
+    /* NOTE: temp -> disable jewels
+    // Diamond (top left)
+    nodeEnter.append("image")
+    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/diamond.svg")
+    .attr("x", -32.5)
+    .attr("y", -27)
+    .attr('opacity', 0.85);
+
+    // Diamond (top right)
+    nodeEnter.append("image")
+    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/gold.svg")
+    .attr("x", 9)
+    .attr("y", -29.5)
+    .attr('opacity', 0.85);
+
+    // Diamond (bottom left)
+    nodeEnter.append("image")
+    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/purple.svg")
+    .attr("x", -34)
+    .attr("y", 10)
+    .attr('opacity', 0.85);
+
+    // Diamond (bottom right)
+    nodeEnter.append("image")
+    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/blue.svg")
+    .attr("x", 10)
+    .attr("y", 10)
+    .attr('opacity', 0.85);
+    */
 
     // phantom node to give us mouseover in a radius around it
     nodeEnter.append("circle")
         .attr('class', 'ghostCircle')
-        .attr("r", 30)
+        .attr("r", 35)
         .attr("opacity", 0.2) // change this to zero to hide the target area
         .style("fill", "red")
         .attr('pointer-events', 'mouseover')
@@ -309,24 +380,19 @@ function update(source) {
 
     // Update the text to reflect whether node has children or not.
     node.select('text')
-        .attr("x", function(d) {
-            //return d.children || d._children ? -10 : 10;
-            return -20;
-        })
-        .attr("text-anchor", function(d) {
-            //return d.children || d._children ? "end" : "start";
-            return "end";
-        })
+        .attr("x", -35)
+        .attr("text-anchor", "end")
         .text( (d) => d.name );
 
     // Change the circle fill depending on whether it has children and is collapsed
     node.select("circle.nodeCircle")
-        .attr("r", 18)
+        .attr("r", 25)
         .style("fill", function(d) {
             return d._children ? "lightsteelblue" : "#fff";
         });
 
     // Transition nodes to their new position.
+    // NOTE: stretching x-axis
     var nodeUpdate = node.transition()
         .duration(transitionDuration)
         .attr("transform", function(d) {

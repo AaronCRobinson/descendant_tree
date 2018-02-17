@@ -21,27 +21,29 @@ body {
 
 #biotext {
   z-index: 99;
-  margin-left: 250px;
+  margin-left: 235px;
   margin-top: 15px;
-  padding: 25px 25px 35px;
+  padding: 15px;
 }
 
 #bio.has-image {
+  height: -25px;
   min-height: 175px;
 }
 
 /*#bio img {*/
 #kittypic {
+  /*position: absolute;*/
   float: left;
-  height: 250px;
-  width: 250px;
+  height: 225px;
+  width: 225px;
 }
 
 #kittypic img {
   height: 300px;
   width: 300px;
-  margin-top: -35px;
-  margin-left: -35px;
+  margin-top: -25px;
+  margin-left: -37px;
 }
 
 #bio a {
@@ -114,4 +116,34 @@ body {
 
 .kittycalc {
   height: 40px;
+}
+
+div.growlUI {
+  height: 120px;
+  background: url(https://78.media.tumblr.com/tumblr_mdkoyttBGV1rgpyeqo1_500.gif) no-repeat 25px -220px;
+}
+
+div.growlUI h1, div.growlUI h2 {
+  color: white;
+  margin: 25px 20px;
+  text-align: left;
+}
+
+#stats {
+  width: 100%;
+  height: 35px;
+  margin-left: -25px; /* TODO: find a better way*/
+}
+
+#stats:after {
+  content:'';
+  display:block;
+  clear: both;
+}
+
+.stats {
+  float: left;
+  margin: 0px 8px 10px;
+  /*padding: 2px;*/
+  text-shadow: 3px 3px 7px rgba(255, 255, 255, 0.637);
 }
