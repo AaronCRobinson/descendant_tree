@@ -1,5 +1,5 @@
 var ck_api = 'https://api.cryptokitties.co/kitties/';
-var activityTimeout = 3500;
+var activityTimeout = 4500;
 var updatePeriod = 3500;
 
 getTimeStamp = () => Math.floor(Date.now());
@@ -60,8 +60,29 @@ function buildNode(data)
         'name': (data['name'] == null) ? "Kitty #" + data['id'] : data['name'],
         'bio': generateBio(data),
         'image': data['image_url'],
+        'jewels': getJewels(data),
         'children': getChildren(data)
     }
+}
+
+function getJewels(data) {
+    var jewels = {'diamond':[], 'gold':[], 'purple':[], 'blue':[]};
+
+    data['enhanced_cattributes'].forEach( (c) => {
+        if (c['position'] == -1)
+            return;
+        if (c['position'] == 1) { // TODO: finish
+            jewels['diamond'].push({'description': c['description']});
+        } else if (c['position'] < 11) {
+            jewels['gold'].push({'description': c['description']});
+        } else if (c['position'] < 101) {
+            jewels['purple'].push({'description': c['description']});
+        } else if (c['position'] < 501) {
+            jewels['blue'].push({'description': c['description']});
+        }
+    });
+
+    return jewels;
 }
 
 // TODO: make better...
@@ -108,7 +129,7 @@ function getChildren(parent) {
 
 // Setup keyboard interfacing
 document.addEventListener("keydown", function(event) {
-    console.log(event.which);
+    //console.log(event.which);
     switch (event.which) {
         case 71:
             console.log("You just pressed g!");
@@ -135,6 +156,7 @@ $(document).ready(function() {
         checkIfDone();
     });
 });
+
 
 function initInterface() {
     // set values
@@ -215,6 +237,11 @@ function drawTree(treeData) {
 
     // Append a group which holds all nodes and which the zoom Listener can act upon.
     svgGroup = baseSvg.append("g");
+
+    // TODO: figure out better way to wire ui... this is silly
+    setCenterOnUpdate = (bool) => { centerOnUpdate = bool; $('input[name="centerOnUpdate"]').prop('checked', bool); }
+
+    baseSvg.on("mousedown", () => setCenterOnUpdate(false));
 
     setRoot(treeData);
 
@@ -305,7 +332,7 @@ function update(source) {
         .attr("class", "node")
         .attr("transform", function(d) {
             if (vertical)
-              return `translate(${source.x0},${source.y0})`;
+                return `translate(${source.x0},${source.y0})`;
             else
                 return `translate(${source.y0},${source.x0})`;
         })
@@ -354,38 +381,8 @@ function update(source) {
              .attr("width", 85)
              .attr("height", 85);
 
-    // TODO: connect more data
-    // append an image if one exists
-
-    /* NOTE: temp -> disable jewels
     // Diamond (top left)
-    nodeEnter.append("image")
-    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/diamond.svg")
-    .attr("x", -32.5)
-    .attr("y", -27)
-    .attr('opacity', 0.85);
 
-    // Diamond (top right)
-    nodeEnter.append("image")
-    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/gold.svg")
-    .attr("x", 9)
-    .attr("y", -29.5)
-    .attr('opacity', 0.85);
-
-    // Diamond (bottom left)
-    nodeEnter.append("image")
-    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/purple.svg")
-    .attr("x", -34)
-    .attr("y", 10)
-    .attr('opacity', 0.85);
-
-    // Diamond (bottom right)
-    nodeEnter.append("image")
-    .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/blue.svg")
-    .attr("x", 10)
-    .attr("y", 10)
-    .attr('opacity', 0.85);
-    */
 
     // phantom node to give us mouseover in a radius around it
     nodeEnter.append("circle")
@@ -394,34 +391,77 @@ function update(source) {
         .attr("opacity", 0.2) // change this to zero to hide the target area
         .style("fill", "red")
         .attr('pointer-events', 'mouseover')
-        .on("mouseover", function(node) {
-            overCircle(node);
-        })
-        .on("mouseout", function(node) {
-            outCircle(node);
-        });
+        .on("mouseover", (n) => overCircle(node))
+        .on("mouseout", (n) => outCircle(node));
 
-    node.select('image').attr("xlink:href", function(d) {
-      if (d.image)
-        return d.image;
-      else
-        return "https://www.cryptokitties.co/images/kitty-love-3.svg";
-    });
+    node.select('image').attr("xlink:href", (d) => (d.image) ? d.image : "https://www.cryptokitties.co/images/kitty-love-3.svg");
     node.select('image').attr("title", (d) => d.bio ? d.bio : "");
     node.select('image').attr("kid", (d) => d.id);
 
-    // Update the text to reflect whether node has children or not.
-    node.select('text')
-        .attr("x", -35)
-        .attr("text-anchor", "end")
-        .text( (d) => d.name );
+
+    // !*!*!*!*! Diamond (top left) !*!*!*!*!
+    var diamonds = node.filter( (d) => 'jewels' in d && d['jewels']['diamond'].length > 0);
+    diamonds.append("image")
+        .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/diamond.svg")
+        .attr("x", -32.5)
+        .attr("y", -27)
+        .attr('opacity', 0.85);
+    diamonds.append('text')
+        .attr("x", -22)
+        .attr("y",-15)
+        .attr("text-anchor", "middle")
+        .style("class", "jewelnum")
+        .text((d) => d['jewels']['diamond'].length);
+
+    // !*!*!*!*! gilded (top right) !*!*!*!*!
+    var golds = node.filter( (d) => 'jewels' in d && d['jewels']['gold'].length > 0);
+    golds.append("image")
+        .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/gold.svg")
+        .attr("x", 9)
+        .attr("y", -29.5)
+        .attr('opacity', 0.85);
+    golds.append('text')
+        .attr("x", 21.5)
+        .attr("y", -15)
+        .attr("text-anchor", "middle")
+        .style("class", "jewelnum")
+        .text((d) => d['jewels']['gold'].length);
+
+    // !*!*!*!*! amethyst (bottom left) !*!*!*!*!
+    var purples = node.filter( (d) => 'jewels' in d && d['jewels']['purple'].length > 0);
+    purples.append("image")
+        .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/purple.svg")
+        .attr("x", -34)
+        .attr("y", 10)
+        .attr('opacity', 0.85);
+    purples.append('text')
+        .attr("x", -22)
+        .attr("y", 25)
+        .attr("text-anchor", "middle")
+        .style("class", "jewelnum")
+        .text((d) => d['jewels']['purple'].length);
+
+    // !*!*!*!*! lapis (bottom right) !*!*!*!*!
+    var blues = node.filter( (d) => 'jewels' in d && d['jewels']['blue'].length > 0);
+    blues.append("image")
+        .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/blue.svg")
+        .attr("x", 9)
+        .attr("y", 10)
+        .attr('opacity', 0.85);
+    blues.append('text')
+        .attr("x", 21.5)
+        .attr("y", 25)
+        .attr("text-anchor", "middle")
+        .style("class", "jewelnum")
+        .text((d) => d['jewels']['blue'].length);
+
+
+    node.select('text').attr('x', -35).attr('text-anchor', 'end').text( (d) => d.name );
 
     // Change the circle fill depending on whether it has children and is collapsed
     node.select("circle.nodeCircle")
-        .attr("r", 25)
-        .style("fill", function(d) {
-            return d._children ? "lightsteelblue" : "#fff";
-        });
+        .attr('r', 25)
+        .style('fill', (d) => d._children ? "lightsteelblue" : "#fff");
 
     // Transition nodes to their new position.
     // NOTE: stretching x-axis

@@ -167,3 +167,7 @@ div.growlUI h1, div.growlUI h2 {
   /*padding: 2px;*/
   text-shadow: 3px 3px 7px rgba(255, 255, 255, 0.637);
 }
+
+.jewelnum {
+  z-index: 99;
+}
