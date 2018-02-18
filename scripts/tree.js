@@ -1,9 +1,10 @@
 var ck_api = 'https://api.cryptokitties.co/kitties/';
-var activityTimeout = 31500;
-var updatePeriod = 500;
+var activityTimeout = 3500;
+var updatePeriod = 3500;
 
 getTimeStamp = () => Math.floor(Date.now());
 growl429 = () => {$.growlUI('Still fetching kitties', 'Please be patient!'); console.log("429 error");}
+deepClone = (o) => (o == undefined) ? {} : JSON.parse(JSON.stringify(o));
 
 var prevActivity = false;
 stillActive = () => {
@@ -15,6 +16,7 @@ stillActive = () => {
 
 var kittyId = prompt("Please enter the kitty id: ", "101");
 var kittyCnt = 0;
+var kittyLimit = 2500;
 var lastActivity = getTimeStamp();
 
 function cooldownStr(cooldown) {
@@ -78,7 +80,7 @@ function getChildren(parent) {
 
     function fetchChildData(child){
         var url = ck_api + child['id'].toString();
-        function fetch() {
+        (function fetch() {
             $.getJSON(url, function(data) { children.push(buildNode(data)); })
              .fail(function( jqxhr, textStatus, error ) {
                 if (jqxhr.status == 429) { // Too Many Requests
@@ -90,34 +92,68 @@ function getChildren(parent) {
                 } else {
                     console.log(jqxhr);
                 }
-             })
-             .done(() => kittyCnt++);
-        }
-        fetch();
+             });
+        })();
     }
 
-    parent['children'].forEach((child) => fetchChildData(child));
+    parent['children'].forEach((child) => {
+        kittyCnt++
+        if (kittyCnt < kittyLimit)
+            fetchChildData(child);
+        else
+            console.log("Kitty limit reached!!!");
+    });
     return children; //NOTE: will be updated
 }
 
+// Setup keyboard interfacing
+document.addEventListener("keydown", function(event) {
+    console.log(event.which);
+    switch (event.which) {
+        case 71:
+            console.log("You just pressed g!");
+            break;
+    }
+});
+
 var tree;
 var updateLoop;
+// !!!START!!!
 $(document).ready(function() {
-    drawTree(tree);
+    drawTree(tree); // TODO: revist this timing...
 
+    // init
     var url = ck_api + kittyId.toString();
+    initInterface();
+
+    // kick off recursive calls and tree updates
     $.getJSON(url, function(data) {
         //data is the JSON string
         tree = buildNode(data);
-        updateLoop = setTimeout(treeUpdateLoop, updatePeriod);
+
+        updateLoop = setTimeout(treeUpdateLoop, 500);
         checkIfDone();
     });
 });
 
+function initInterface() {
+    // set values
+    $('input[name="kittyLimit"]').val(kittyLimit);
+    $('input[name="centerOnUpdate"]').prop('checked', centerOnUpdate);
+
+    // set listeners
+    $('input[name="kittyLimit"]').on('change', (e) => kittyLimit = e.currentTarget.value);
+    $('button[name="goToKitty"]').on('click', () => alert("bang"));
+    $('input[name="centerOnUpdate"]').on('change', (e) => centerOnUpdate = e.currentTarget.checked);
+}
+
 function treeUpdateLoop() {
     console.log(`Kitty count: ${kittyCnt}`);
     setRoot(tree);
-    update(root);
+    if (centerOnUpdate)
+        updateAndCenter(root);
+    else
+        update(root);
     updateLoop = setTimeout(treeUpdateLoop, updatePeriod); // NOTE: use updateLoop?
 }
 
@@ -147,6 +183,7 @@ var first = true;
 var vertical = false;
 var diagonal, zoomListener;
 var viewerWidth, viewerHeight;
+var centerOnUpdate = true;
 
 function drawTree(treeData) {
 
@@ -157,17 +194,10 @@ function drawTree(treeData) {
     d3tree = d3.layout.tree().size([viewerHeight, viewerWidth]);
 
     // define a d3 diagonal projection for use by the node paths later on.
-    diagonal = d3.svg.diagonal().projection(function(d) {
-      if (vertical)
-        return [d.x, d.y];
-      else
-        return [d.y, d.x];
-    });
+    diagonal = d3.svg.diagonal().projection((d) => (vertical) ? [d.x, d.y] : [d.y, d.x]);
 
     // Define the zoom function for the zoomable tree
-    function zoom() {
-      svgGroup.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-    }
+    zoom = () => svgGroup.attr("transform", `translate(${d3.event.translate})scale(${d3.event.scale})`);
 
     // define the zoomListener which calls the zoom function on the "zoom" event constrained within the scaleExtents
     zoomListener = d3.behavior.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
@@ -205,8 +235,6 @@ function drawTree(treeData) {
       selector: ".node image"
     });
 }
-
-deepClone = (o) => (o == undefined) ? {} : JSON.parse(JSON.stringify(o));
 
 function setRoot(treeData) {
     // Define (or update) the root
@@ -273,9 +301,9 @@ function update(source) {
         .attr("class", "node")
         .attr("transform", function(d) {
             if (vertical)
-              return "translate(" + source.x0 + "," + source.y0 + ")";
+              return `translate(${source.x0},${source.y0})`;
             else
-              return "translate(" + source.y0 + "," + source.x0 + ")";
+                return `translate(${source.y0},${source.x0})`;
         })
         .on('click', click);
 
@@ -397,9 +425,9 @@ function update(source) {
         .duration(transitionDuration)
         .attr("transform", function(d) {
             if (vertical)
-              return "translate(" + d.x + "," + d.y + ")";
+                return `translate(${d.x},${d.y})`;
             else
-              return "translate(" + d.y + "," + d.x + ")";
+                return `translate(${d.y},${d.x})`;
         });
 
     // Fade the text in
@@ -410,9 +438,9 @@ function update(source) {
         .duration(transitionDuration)
         .attr("transform", function(d) {
             if (vertical)
-              return "translate(" + source.x + "," + source.y + ")";
+                return `translate(${source.x},${source.y})`;
             else
-              return "translate(" + source.y + "," + source.x + ")";
+                return `translate(${source.y},${source.x})`;
         }).remove();
     nodeExit.select("circle").attr("r", 0);
     nodeExit.select("text").style("fill-opacity", 0);
@@ -420,20 +448,22 @@ function update(source) {
     // Update the links…
     var link = svgGroup.selectAll("path.link").data(links, (d) => d.target.id );
 
+    getDiagonal = (d) => {
+        var o = {
+            x: source.x0,
+            y: source.y0
+        };
+        return diagonal({
+            source: o,
+            target: o
+        });
+    }
+
     // Enter any new links at the parent's previous position.
     link.enter().insert("path", "g")
         .attr("class", "link")
-        .style('stroke-width', function(d) {return 3*(maxDepth - d.source.depth) + 'px';})
-        .attr("d", function(d) {
-            var o = {
-                x: source.x0,
-                y: source.y0
-            };
-            return diagonal({
-                source: o,
-                target: o
-            });
-        });
+        .style('stroke-width', (d) => `${maxDepth - d.source.depth}px`)
+        .attr("d", getDiagonal);
 
     // Transition links to their new position.
     link.transition().duration(transitionDuration).attr("d", diagonal);
@@ -441,23 +471,11 @@ function update(source) {
     // Transition exiting nodes to the parent's new position.
     link.exit().transition()
         .duration(transitionDuration)
-        .attr("d", function(d) {
-            var o = {
-                x: source.x,
-                y: source.y
-            };
-            return diagonal({
-                source: o,
-                target: o
-            });
-        })
+        .attr("d", getDiagonal)
         .remove();
 
     // Stash the old positions for transition.
-    nodes.forEach(function(d) {
-        d.x0 = d.x;
-        d.y0 = d.y;
-    });
+    nodes.forEach((d) => { d.x0 = d.x; d.y0 = d.y;});
 }
 
 function centerNode(source) {
@@ -468,7 +486,7 @@ function centerNode(source) {
     y = y * scale + viewerHeight / 2;
     d3.select("g").transition()
         .duration(transitionDuration)
-        .attr("transform", "translate(" + x + "," + y + ")scale(" + scale + ")");
+        .attr("transform", `translate(${x},${y})scale(${scale})`);
     //zoomListener.scale(scale);
     zoomListener.translate([x, y]);
 }

@@ -11,9 +11,14 @@
 <body>
   <div id="tree-container"></div>
   <div id="bio"></div>
-  <div><button id="demo12">Run</button></div>
-  <div id="donations">
-    If you found this tool helpful, all donations are appreciated. ETH: 0xCB187BAbfF22a47f59cfAd0439B9d655fc9070dd
+  <div id="bottomleft">
+    <form id="interface">
+      <label for="kittyLimit">Kitty Limit</label>
+      <input type="text" name="kittyLimit" title="For performance, it's important to limit the total number of kitties displayed.">
+      <button type="button" name="goToKitty">Go to Kitty</button>
+      <input type="checkbox" name="centerOnUpdate">
+    </form>
+    <div id="donations">If you found this tool helpful, all donations are appreciated. ETH: 0xCB187BAbfF22a47f59cfAd0439B9d655fc9070dd</div>
   </div>
 </body>
 </html>
