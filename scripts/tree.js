@@ -143,7 +143,10 @@ function initInterface() {
 
     // set listeners
     $('input[name="kittyLimit"]').on('change', (e) => kittyLimit = e.currentTarget.value);
-    $('button[name="goToKitty"]').on('click', () => alert("bang"));
+    $('button[name="goToKitty"]').on('click', () => {
+        var goToID = prompt("Please enter the kitty id: ");
+        centerNode(d3tree.nodes(root).find((d) => d.id == goToID));
+    });
     $('input[name="centerOnUpdate"]').on('change', (e) => centerOnUpdate = e.currentTarget.checked);
 }
 
@@ -154,6 +157,7 @@ function treeUpdateLoop() {
         updateAndCenter(root);
     else
         update(root);
+
     updateLoop = setTimeout(treeUpdateLoop, updatePeriod); // NOTE: use updateLoop?
 }
 
