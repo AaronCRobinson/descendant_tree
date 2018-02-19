@@ -72,13 +72,13 @@ function getJewels(data) {
         if (c['position'] == -1)
             return;
         if (c['position'] == 1) { // TODO: finish
-            jewels['diamond'].push({'description': c['description']});
+            jewels['diamond'].push(c);
         } else if (c['position'] < 11) {
-            jewels['gold'].push({'description': c['description']});
+            jewels['gold'].push(c);
         } else if (c['position'] < 101) {
-            jewels['purple'].push({'description': c['description']});
+            jewels['purple'].push(c);
         } else if (c['position'] < 501) {
-            jewels['blue'].push({'description': c['description']});
+            jewels['blue'].push(c);
         }
     });
 
@@ -90,9 +90,8 @@ function generateBio(data) {
     var birthday = new Date(data['created_at']).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
     var bio = `<div id="stats"><div class="stats">Birthday: ${birthday}</div> <div class="stats">Gen: ${data['generation']}</div> <div class="stats">Cooldown: ${cooldownStr(data['status']['cooldown_index'])}</div></div>`
     bio += `<div>${data['bio']}</div>`;
-    var geneLink = `https://kittycalc.co/read/?k1=${data['id']}&k2=1`
     // NOTE: use div for link?
-    return bio + `<div id="links"><a href="${geneLink}" target="_blank"><img class="kittycalc" src="images/kittycalc.png"></a></div>`;
+    return `${bio}<div id="links"><a href="https://kittycalc.co/read/?k1=${data['id']}&k2=1" target="_blank"><img class="kittycalc" src="images/kittycalc.png"></a></div>`;
 }
 
 function getChildren(parent) {
@@ -251,12 +250,35 @@ function drawTree(treeData) {
     // Show biography and picture on hover
     $("body").hoverIntent({
       over: function() {
-        var bio = $(this).attr("title");
-        var img = $(this).attr("href");
-        var kid = $(this).attr("kid");
-        $("#bio").html(`<div id="kittypic"><a href="https://www.cryptokitties.co/kitty/${kid}" target="_blank"><img src="${img}"></a></div> <div id="biotext">${bio}</div>`)
-                 .addClass("has-image")
-                 .fadeIn("fast");
+          $("#bio").fadeIn("fast");
+          var self = $(this);
+          switch (self.attr("class")) {
+
+              case "gempic":
+                var img = self.attr("href");
+                var gemtype = self.attr("gemtype");
+                // move node to parent and grab jewels
+                self = d3.select(this.parentNode).select("image.nodepic");
+                var jewels = self.data()[0]['jewels'];
+
+                var jewelInfo = "";
+                jewels[gemtype].forEach((d) => {
+                    // TODO: pictures should link some better way than this..
+                    jewelInfo += `<div id="familyJewels"><div id="gemPosition">${d['position']}</div><a href="https://www.cryptokitties.co/kitty/${d['kittyId']}" target="_blank"><img src="https://storage.googleapis.com/ck-kitty-image/0x06012c8cf97bead5deae237070f9587f8e7a266d/${d['kittyId']}.svg"></a><div id="gemDescription">${d['description']}</div></div>`
+                });
+
+                $("#subbio").fadeIn("fast");
+                $("#subbio").html(`<div id="gemPic"><img src="${img}"></div> <div id="gemDetails">${jewelInfo}</div>`);
+
+                //break;
+              case "nodepic":
+                var bio = self.attr("title");
+                var img = self.attr("href");
+                var kid = self.attr("kid");
+                $("#mainbio").html(`<div id="kittypic"><a href="https://www.cryptokitties.co/kitty/${kid}" target="_blank"><img src="${img}"></a></div> <div id="biotext">${bio}</div>`);
+                break;
+          }
+
       },
       // TODO: fadeOut...
       out: () => {}, // NOTE: eats some errors
@@ -394,10 +416,10 @@ function update(source) {
         .on("mouseover", (n) => overCircle(node))
         .on("mouseout", (n) => outCircle(node));
 
-    node.select('image').attr("xlink:href", (d) => (d.image) ? d.image : "https://www.cryptokitties.co/images/kitty-love-3.svg");
-    node.select('image').attr("title", (d) => d.bio ? d.bio : "");
-    node.select('image').attr("kid", (d) => d.id);
-
+    node.select('image').attr("xlink:href", (d) => (d.image) ? d.image : "https://www.cryptokitties.co/images/kitty-love-3.svg")
+                        .attr("title", (d) => d.bio ? d.bio : "")
+                        .attr("kid", (d) => d.id)
+                        .attr("class", "nodepic");
 
     // !*!*!*!*! Diamond (top left) !*!*!*!*!
     var diamonds = node.filter( (d) => 'jewels' in d && d['jewels']['diamond'].length > 0);
@@ -405,7 +427,9 @@ function update(source) {
         .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/diamond.svg")
         .attr("x", -32.5)
         .attr("y", -27)
-        .attr('opacity', 0.85);
+        .attr('opacity', 0.85)
+        .attr("class", "gempic")
+        .attr("gemtype", "diamond");
     diamonds.append('text')
         .attr("x", -22)
         .attr("y",-15)
@@ -419,7 +443,9 @@ function update(source) {
         .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/gold.svg")
         .attr("x", 9)
         .attr("y", -29.5)
-        .attr('opacity', 0.85);
+        .attr('opacity', 0.85)
+        .attr("class", "gempic")
+        .attr("gemtype", "gold");
     golds.append('text')
         .attr("x", 21.5)
         .attr("y", -15)
@@ -433,7 +459,9 @@ function update(source) {
         .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/purple.svg")
         .attr("x", -34)
         .attr("y", 10)
-        .attr('opacity', 0.85);
+        .attr('opacity', 0.85)
+        .attr("class", "gempic")
+        .attr("gemtype", "purple");
     purples.append('text')
         .attr("x", -22)
         .attr("y", 25)
@@ -447,7 +475,9 @@ function update(source) {
         .attr("xlink:href", "https://www.cryptokitties.co/images/cattributes/blue.svg")
         .attr("x", 9)
         .attr("y", 10)
-        .attr('opacity', 0.85);
+        .attr('opacity', 0.85)
+        .attr("class", "gempic")
+        .attr("gemtype", "blue");
     blues.append('text')
         .attr("x", 21.5)
         .attr("y", 25)

@@ -1,10 +1,13 @@
+/* TODO: clean up */
+
 body {
   margin: 0;
 }
 
+/* bio */
 #bio {
-  position: absolute;
-  top:0;
+  position: fixed;
+  top: 0;
   left: 0;
   z-index: 90;
   font-family: "Georgia";
@@ -12,26 +15,29 @@ body {
   max-width: 850px;
   line-height: 1.4;
   text-align: justify;
-  background:rgba(0,0,0,.8);
-  color: white;
   display: none;
   box-sizing: border-box;
   /*pointer-events:none;*/
 }
 
+#bio a {
+  text-decoration: none;
+  color: white;
+}
+
 #biotext {
-  z-index: 99;
   margin-left: 235px;
   margin-top: 15px;
   padding: 15px;
 }
 
-#bio.has-image {
-  height: -25px;
-  min-height: 175px;
+#mainbio {
+  float: left;
+  background:rgba(0,0,0,.8);
+  color: white;
+  height: 225px;
 }
 
-/*#bio img {*/
 #kittypic {
   /*position: absolute;*/
   float: left;
@@ -46,9 +52,59 @@ body {
   margin-left: -37px;
 }
 
-#bio a {
-  text-decoration: none;
+#subbio {
+  float: left;
+  background:rgba(0,0,0,.8);
   color: white;
+  display: none;
+  padding-right: 15px;
+  height: 160px;
+  width: auto !important;
+}
+
+#gemPic {
+  float: left;
+  height: 150px;
+  width: 150px;
+}
+
+#gemPic img {
+  height: 150px;
+  padding: 5px;
+}
+
+#gemDetails {
+  float: left;
+}
+
+#gemDescription {
+  position: absolute;
+  bottom: 5px;
+  width: 100%;
+  text-align: center;
+}
+
+#gemPosition {
+  position: absolute;
+  top: 5px;
+  width: 100%;
+  text-align: center;
+}
+
+#gemDetails div {
+  float: left;
+  /*position: relative;*/
+}
+
+#familyJewels {
+  float: left;
+  position: relative;
+}
+
+#gemDetails img {
+  float: left;
+  height: 150px;
+  width: 150px;
 }
 
 .node {
