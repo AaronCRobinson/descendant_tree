@@ -1,10 +1,21 @@
+var STAGGERN = 4; // delay for each node
+var STAGGERD = 200; // delay for each depth
 var HAS_CHILDREN_COLOR = 'lightsteelblue';
 var SELECTED_COLOR = '#a00';  // color of selected node
+var DURATION = 700; // d3 animation duration
+
+var treeData; // json data containing tree structure
+var curNode;  // currently selected node
+var transitionDuration;
 
 
 var ck_api = 'https://api.cryptokitties.co/kitties/';
 var activityTimeout = 4500;
 var updatePeriod = 3500;
+
+
+
+var showJewels = false;
 
 getTimeStamp = () => Math.floor(Date.now());
 growl429 = () => {$.growlUI('Still fetching kitties', 'Please be patient!'); console.log("429 error");}
@@ -182,7 +193,6 @@ document.addEventListener("keydown", function(event) {
     }
 });
 
-var tree;
 var updateLoop;
 // !!!START!!!
 $(document).ready(function() {
@@ -192,9 +202,8 @@ $(document).ready(function() {
 
     // kick off recursive calls and tree updates
     $.getJSON(url, function(data) {
-        // data is the JSON string
-        tree = buildNode(data);
-        drawTree(tree);
+        treeData = buildNode(data);  // init tree data
+        drawTree();
         updateLoop = setTimeout(treeUpdateLoop, 500);
         checkIfDone();
     });
@@ -219,7 +228,12 @@ function initInterface() {
 
 function treeUpdateLoop() {
     console.log(`Kitty count: ${kittyCnt}`);
-    setRoot(tree);
+
+    // TODO: double check this is necessary
+    // update root using a new tree from treeData
+    var newTree = d3tree(d3.hierarchy(treeData));
+    root = Object.assign(newTree, root);
+
     if (centerOnUpdate)
         updateAndCenter(root);
     else
@@ -238,13 +252,11 @@ function checkIfDone() {
 // Here lies modified descendant_tree code
 var d3tree;
 var root;
-//var treeData;
 var svgGroup
 // Misc. variables
 var i = 0;
 var maxDepth = 0;
 var maxLabelLength = 30;
-var transitionDuration = 350;
 var nodeRadius = 29;
 var first = true;
 var zoomListener;
@@ -252,10 +264,13 @@ var viewerWidth, viewerHeight, center;
 var currentScale
 var centerOnUpdate = true;
 var selectedKittyID;
+var gnode;
+
+var stratify;
 
 var kittyUrl = 'https://www.cryptokitties.co/kitty/'
 
-function drawTree(tree) {
+function drawTree() {
 
     // size of the diagram
     viewerWidth = $(document).width();
@@ -265,7 +280,8 @@ function drawTree(tree) {
     //d3tree = d3.tree().size([viewerHeight, viewerWidth]);
 
     d3tree = d3.tree()
-        .size([2 * Math.PI, 500])
+        .size([2 * Math.PI, viewerWidth])
+        //.nodeSize([500, 00])
         .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2) / a.depth; });
 
     // Define the zoom function for the zoomable tree
@@ -292,8 +308,10 @@ function drawTree(tree) {
 
     baseSvg.on("mousedown", () => setCenterOnUpdate(false));
 
+    console.log(d3.hierarchy(treeData));
+
     // Layout the tree initially and center on the root node.
-    setRoot(tree);
+    root = d3tree(d3.hierarchy(treeData));
     updateAndCenter(root);
 
     handleNodePic = (n) => {
@@ -347,28 +365,15 @@ function drawTree(tree) {
     });
 }
 
-// TODO: work in progress
-function setRoot(treeData) {
-    // Define (or update) the root
-    var temp = d3tree(d3.hierarchy(deepClone(treeData)));
-    if (root) {
-        temp.x = root.x;
-        temp.y = root.y;
-        temp.x0 = root.x0;
-        temp.y0 = root.y0;
-    } else {
-        temp.x0 = 0; //center.x;
-        temp.y0 = 0;
-    }
-    root = temp;
-}
-
 function updateAndCenter(source) {
     update(source);
     centerNode(source);
 }
 
 function update(source) {
+
+    var transitionDuration = d3.event && d3.event.altKey ? DURATION * 4 : DURATION;
+
     // Compute the new height, function counts total children of root node and sets tree height accordingly.
     // This prevents the layout looking squashed when new nodes are made visible or looking sparse when nodes are removed
     // This makes the layout more consistent.
@@ -412,23 +417,31 @@ function update(source) {
     //if (!('id' in root)) return;
 
     // Compute the new tree layout.
-    var links = root.links();
-        //links = root.descendants().slice(1);
+    var nodes = root.descendants(),
+        links = root.links();
+
+    // TODO: return to transforming tree into natural tree-like shape
 
     // Set widths & heights between levels based on maxLabelLength.
-    root.descendants().forEach(function(d) {
+    nodes.forEach(function(d) {
         if (d.depth > maxDepth)
             maxDepth = d.depth;
         //d.y *= 0.45; //(d.depth * (maxLabelLength * 10.5));
         //d.y *= 0.5 * Math.pow(levelWidth[d.depth], 1/(d.depth+1)); //d.children ? d.children.length : 1;
         // d.x *= 2 * (d.parent ? d.parent.children.length : 1);
-        //d.x *= 2;
-        //d.y *= 2;
+        //console.log(d.id);
+        //d.y *= d.depth/4 + 0.5;
+        //d.x =(d.x + (2 * Math.PI)) / 3; //(d.x + (3 * Math.PI)) / 4;
+        //d.x = d.x / 2 + Math.PI /2;
+        //d.x /= 2;
     });
+
+    gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
 
     nodeEntry(source);
 
-    var gnode = svgGroup.selectAll("g.node");
+    // NOTE: not quite sure why this is required...
+    gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
 
     // Change the circle fill depending on whether it has children and is collapsed
     gnode.select('circle.nodeCircle')
@@ -457,8 +470,8 @@ function update(source) {
     var nodeExit = gnode.exit().transition()
         .duration(transitionDuration)
         .attr('transform', () => `translate(${radialPoint(source.x, source.y)})`).remove();
-    nodeExit.select("circle").attr('r', 0);
-    nodeExit.select("text").style("fill-opacity", 0);
+    nodeExit.select('circle').attr('r', 0);
+    nodeExit.select('text').style('fill-opacity', 0);
 
     // Update the links…
     var link = svgGroup.selectAll("path.link").data(links, (d) => d.id );
@@ -466,13 +479,14 @@ function update(source) {
     linkRadial = d3.linkRadial().angle( (d) => d.x ).radius( (d) => d.y );
 
     // Enter any new links at the parent's previous position.
-    link.enter().insert("path", "g")
-        .attr("class", "link")
-        //.style('stroke-width', (d) => `${maxDepth - d.source.depth}px`)
-        .attr("d", linkRadial);
+    link.enter().insert('path', 'g')
+        .attr('class', 'link')
+        .style('stroke-width', (d) => `${2 * (maxDepth - d.source.depth)}px`)
+        .attr('d', linkRadial);
 
     // Transition links to their new position.
-    link.transition().duration(transitionDuration).attr("d", linkRadial);
+    link.transition().duration(transitionDuration)
+        .delay( (d, i) => i * STAGGERN + Math.abs(d.source.depth - curNode.depth) * STAGGERD ).attr("d", linkRadial);
 
     // Transition exiting nodes to the parent's new position.
     link.exit().transition()
@@ -481,19 +495,15 @@ function update(source) {
         .remove();
 
     // Stash the old positions for transition.
-    root.descendants().forEach((d) => { d.x0 = d.x; d.y0 = d.y;});
+    nodes.forEach((d) => { d.x0 = d.x; d.y0 = d.y;});
 }
 
 function nodeEntry(source) {
-    var gnode = svgGroup.selectAll("g.node").data(root.descendants(), (d) => d.id || (d.id = ++i) );
-
     // Enter any new nodes at the parent's previous position.
-    var nodeEnter = gnode.enter().append("g")
+    var nodeEnter = gnode.enter().insert('g', ':first-child')
         .attr('class', 'node')
-        //.attr("transform", (d) => `translate(${source.x0},${source.y0})`)
-        //.attr('transform', `rotate(${(source.x0 - 90)})translate(${source.y0})`)
         .attr("transform", (d) => `translate(${radialPoint(d.x, d.y)})` )
-        .on('click', click);
+        .on('click', click); // TODO: more stuff
 
     nodeEnter.append('circle')
              .attr('class', 'nodeCircle')
@@ -513,6 +523,8 @@ function nodeEntry(source) {
              .attr("y", -42)
              .attr("width", 85)
              .attr("height", 85);
+
+    if (!showJewels) return;
 
     // !*!*!*!*! Diamond (top left) !*!*!*!*!
     var diamonds = nodeEnter.filter( (d) => d.data.jewels.diamond.length > 0);
@@ -579,15 +591,36 @@ function nodeEntry(source) {
         .text((d) => d.data.jewels.blue.length);
 }
 
+// highlight selected node
+function selectNode(node) {
+    if (curNode) delete curNode.selected;
+    curNode = node;
+    curNode.selected = true;
+    curPath = []; // filled in by fullpath
+    d3.select('#selection').html(fullpath(node));
+}
+
+// for displaying full path of node in tree
+function fullpath(d, idx) {
+    idx = idx || 0;
+    curPath.push(d);
+    return (d.parent ? fullpath(d.parent, curPath.length) : '') +
+        '/<span class="nodepath'+(d.name === root.name ? ' highlight' : '')+
+        '" data-sel="'+ idx +'" title="Set Root to '+ d.name +'">' +
+        d.name + '</span>';
+}
+
 function radialPoint(x, y) {
     //return [(y = +y) * Math.cos(x -= Math.PI / 2), y * Math.sin(x)];
     return [(y = +y) * Math.cos(x -= Math.PI / 2), y * Math.sin(x)];
 }
 
 function centerNode(source) {
+    selectNode(root);
+    // TODO: !!!
     //scale = ;
-    x = -source.x0;
-    y = -source.y0;
+    //x = -source.x0;
+    //y = -source.y0;
     //x = x * currentScale + center.x;
     //y = y * currentScale + center.y;
     //d3.select("g").transition().duration(transitionDuration).attr('transform', `translate(${x},${y})scale(${currentScale})`);
