@@ -16,14 +16,13 @@ var viewerWidth, viewerHeight, center; // screen resolution and center
 var zoomListener;
 var zoomScale = 1; // current scale set via zooming
 var centerOnUpdate = false;
+var showJewels = true; // if jewels are being displayed
 
 
 var activityTimeout = 4500;
 var updatePeriod = 3500;
 
 
-
-var showJewels = false;
 
 getTimeStamp = () => Math.floor(Date.now());
 growl429 = () => {$.growlUI('Still fetching kitties', 'Please be patient!'); console.log("429 error");}
@@ -213,11 +212,13 @@ $(document).ready(function() {
 function initInterface() {
     // set values
     $('input[name="kittyLimit"]').val(kittyLimit);
+    $('input[name="showJewels"]').prop('checked', showJewels);
     $('input[name="centerOnUpdate"]').prop('checked', centerOnUpdate);
     $('input[name="autoCollapse"]').prop('checked', autoCollapse);
 
     // set listeners
     $('input[name="kittyLimit"]').on('change', (e) => kittyLimit = e.currentTarget.value);
+    $('input[name="showJewels"]').on('change', (e) => showJewels = e.currentTarget.checked);
     $('input[name="centerOnUpdate"]').on('change', (e) => centerOnUpdate = e.currentTarget.checked);
     $('input[name="autoCollapse"]').on('change', (e) => autoCollapse = e.currentTarget.checked);
 
