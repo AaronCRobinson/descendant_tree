@@ -231,6 +231,7 @@ function initInterface() {
 
 }
 
+// TODO: clean up sorting
 function getTree() {
     // helper to count children
     function childCnt(n) {
@@ -246,13 +247,9 @@ function getTree() {
     });*/
     //console.log(sorted);
 
-    junk = d3.hierarchy(treeData);
-
     var sorted = d3.hierarchy(treeData)
         .sum(function(d) { return d.value; })
         .sort(function(a, b) { return b.height - a.height });
-
-    //junk = sorted;
 
     //var leftSide = sorted.splice(0, Math.ceil(sorted.length/2));
     // normal distribution sort
@@ -316,7 +313,7 @@ function drawTree() {
     // TODO: Feature -> allow d3.cluster()
     d3tree = d3.tree()
         //.size([Math.PI, viewerWidth])
-        .nodeSize([750, 350])
+        .nodeSize([750, 450])
         .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2.5) / a.depth; });
 
     // Define the zoom function for the zoomable tree
@@ -469,13 +466,12 @@ function update(source) {
         //d.x /= 2;
     });
 
-    // TODO: I think this counting needs to be fixed...
     gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
 
     nodeEntry(source);
 
     // NOTE: not quite sure why this is required...
-    gnode = svgGroup.selectAll("g.node").data(nodes);
+    gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
 
     // Change the circle fill depending on whether it has children and is collapsed
     gnode.select('circle.nodeCircle')
@@ -483,7 +479,7 @@ function update(source) {
         //.style('fill', (d) => d._children ? HAS_CHILDREN_COLOR : 'white')
         .attr('stroke', (d) => d.selected ? SELECTED_COLOR : 'steelblue')
         .attr('stroke-width', (d) => d.selected ? 3 : 1.5)
-        .attr('class', (d) => `u-bg-alt-${d.color}`);
+        .attr('class', (d) => `nodeCircle u-bg-alt-${d.data.color}`);
 
     gnode.select('text.nodeText')
         .attr("x", 0)
@@ -524,34 +520,44 @@ function update(source) {
         return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
     }*/
 
-    function linkArc(d) {
-
+    // NOTE: arc halfway then draw line.
+    /*function linkArc(d) {
         var dx = d.target.x - d.source.x;
 
-        /*if (dx == 0)
-        {
+        if (dx == 0)
             return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`; // line
-        }*/
 
         var dy = d.target.y - d.source.y,
         dr = Math.sqrt(dx * dx + dy * dy),
         sweepFlag = dx > 0;
 
         return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${+sweepFlag} ${d.target.x},${d.target.y}`;
+    }*/
 
-        //return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
-        //var source = project(d.source);
-        //var target = project(d.target);
-        //return `M${source[0]},${source[1]} ${target[0]},${target[1]}`;
-        //return `M${source[0]} ${source[1]}C${source[0]} ${target[1]}, ${target[0]} ${source[1]}, ${target[0]},${target[1]}`;
+    function linkArc(d) {
+        /*if (d.target.x - d.source.x == 0)
+            return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`; // line*/
 
+        var mx = (d.target.x + d.source.x ) / 2,
+            my = (d.target.y + d.source.y) / 2,
+            dx = mx - d.source.x,
+            dy = my - d.source.y,
+            dr = Math.sqrt(dx * dx + dy * dy),
+            //sweepFlag = dx > 0;
+            sweepFlag = (d.target.x - d.source.x == 0) ? d.source.x < 0 : dx > 0;
+
+        //return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${+sweepFlag} ${mx},${my}L${d.target.x},${d.target.y}`;
+        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${sweepFlag ? 0 : 1} ${mx},${my} A${dr},${dr} 0 0,${+sweepFlag} ${d.target.x},${d.target.y}`;
     }
 
     // Enter any new links at the parent's previous position.
     link.enter().insert('path', 'g')
         .attr('class', 'link')
-        .style('stroke-width', (d) => `${2 * (maxDepth - d.source.depth)}px`)
-        .attr('d', linkArc);
+        .attr('d', linkArc)
+        .style('stroke-width', (d) => {
+
+            return `${(maxDepth - d.source.depth) + (d.target.data.children ? d.target.data.children.length : 0)}px`;
+        });
         //.attr('transform', (d) => `translate(${project(d.target.x, d.target.y)})`);
 
     // Transition links to their new position.
@@ -580,8 +586,8 @@ function nodeEntry(source) {
 
     nodeEnter.append('circle')
              .attr('class', 'nodeCircle')
-             .attr('r', 1e-6)
-             .style("fill", (d) => d._children ? "lightsteelblue" : "#fff"); // TODO: fill color for node
+             .attr('r', 1e-6);
+             //.style("fill", (d) => d._children ? "lightsteelblue" : "#fff"); // TODO: fill color for node
 
     nodeEnter.append("text")
              .attr('class', 'nodeText')
