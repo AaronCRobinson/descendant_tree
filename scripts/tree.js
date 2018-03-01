@@ -1,17 +1,21 @@
 var STAGGERN = 4; // delay for each node
 var STAGGERD = 200; // delay for each depth
 var HAS_CHILDREN_COLOR = 'lightsteelblue';
-var SELECTED_COLOR = '#a00';  // color of selected node
 var DURATION = 700; // d3 animation duration
 var CK_API = 'https://api.cryptokitties.co/kitties/';
 var NODESIZEX = "750";
 var NODESIZEY =  "450";
+var DEFAULTKITTYID = "101" // BugCat
 
 var treeData; // json data containing tree structure
 var curNode;  // currently selected node
 var transitionDuration;
 var maxDepth = 1; // tracks max depth of tree structure
-
+var autoCollapse = false;
+var viewerWidth, viewerHeight, center; // screen resolution and center
+var zoomListener;
+var zoomScale = 1; // current scale set via zooming
+var centerOnUpdate = false;
 
 
 var activityTimeout = 4500;
@@ -33,7 +37,7 @@ stillActive = () => {
     return activity;
 }
 
-var kittyId = prompt("Please enter the kitty id: ", "101");
+var kittyId = prompt("Please enter the kitty id: ", DEFAULTKITTYID);
 var kittyCnt = 0;
 var kittyLimit = 2500;
 var lastActivity = getTimeStamp();
@@ -115,7 +119,7 @@ function buildNode(data)
         })();
     }
 
-    data['children'].forEach((child) => {
+    data.children.forEach((child) => {
         kittyCnt++
         if (kittyCnt < kittyLimit)
             fetchChildData(child);
@@ -189,16 +193,6 @@ function getJewels(data) {
     return children; //NOTE: will be updated
 }*/
 
-// Setup keyboard interfacing
-document.addEventListener("keydown", function(event) {
-    //console.log(event.which);
-    switch (event.which) {
-        case 71:
-            console.log("You just pressed g!");
-            break;
-    }
-});
-
 var updateLoop;
 // !!!START!!!
 $(document).ready(function() {
@@ -220,15 +214,26 @@ function initInterface() {
     // set values
     $('input[name="kittyLimit"]').val(kittyLimit);
     $('input[name="centerOnUpdate"]').prop('checked', centerOnUpdate);
+    $('input[name="autoCollapse"]').prop('checked', autoCollapse);
 
     // set listeners
     $('input[name="kittyLimit"]').on('change', (e) => kittyLimit = e.currentTarget.value);
     $('input[name="centerOnUpdate"]').on('change', (e) => centerOnUpdate = e.currentTarget.checked);
+    $('input[name="autoCollapse"]').on('change', (e) => autoCollapse = e.currentTarget.checked);
 
     $('button[name="goToKitty"]').on('click', () => {
         var goToID = prompt("Please enter the kitty id: ");
-        console.log("not implemented!");
-        //centerNode(d3tree.nodes(root).find((d) => d.id == goToID));
+        centerNode(d3tree.nodes(root).find((d) => d.id == goToID));
+    });
+
+    // Setup keyboard interfacing
+    document.addEventListener("keydown", function(event) {
+        //console.log(event.which);
+        switch (event.which) {
+            case 71:
+                console.log("You just pressed g!");
+                break;
+        }
     });
 
 }
@@ -269,6 +274,8 @@ function treeUpdateLoop() {
     //d3tree = d3.tree().size([2 * Math.PI, 25 * kittyCnt + 100 * maxDepth])
     var newTree = getTree();
     root = Object.assign(root, newTree);
+    if (autoCollapse) // collapse after the second level
+        root.children.forEach(collapse);
 
     if (centerOnUpdate)
         updateAndCenter(root);
@@ -294,10 +301,6 @@ var i = 0;
 var maxLabelLength = 30;
 var nodeRadius = 29;
 var first = true;
-var zoomListener;
-var viewerWidth, viewerHeight, center;
-var currentScale
-var centerOnUpdate = true;
 var selectedKittyID;
 var gnode;
 
@@ -321,7 +324,8 @@ function drawTree() {
     // Define the zoom function for the zoomable tree
     zoom = () => {
         var transform = d3.event.transform;
-        svgGroup.attr("transform", `translate(${[transform.x, transform.y]})scale(${transform.k})`);
+        zoomScale = transform.k;
+        svgGroup.attr("transform", `translate(${[transform.x, transform.y]})scale(${zoomScale})`);
     }
 
     // define the zoomListener which calls the zoom function on the "zoom" event constrained within the scaleExtents
@@ -332,6 +336,7 @@ function drawTree() {
         .attr("width", viewerWidth)
         .attr("height", viewerHeight)
         .attr("class", "overlay")
+        //.on("click", console.log("BAnanana!!!!"))
         .call(zoomListener);
 
     // Append a group which holds all nodes and which the zoom Listener can act upon.
@@ -340,7 +345,8 @@ function drawTree() {
     // TODO: figure out better way to wire ui... this is silly
     setCenterOnUpdate = (bool) => { centerOnUpdate = bool; $('input[name="centerOnUpdate"]').prop('checked', bool); }
 
-    baseSvg.on("mousedown", () => setCenterOnUpdate(false));
+    //baseSvg.on("mousedown", () => setCenterOnUpdate(false));
+    //baseSvg.on("mousedown", console.log("BAnanana!!!!"));
 
     // Layout the tree initially and center on the root node.
     root = getTree();
@@ -405,6 +411,9 @@ function updateAndCenter(source) {
 function update(source) {
 
     var transitionDuration = d3.event && d3.event.altKey ? DURATION * 4 : DURATION;
+
+    // collapse after the second level
+    //if (root.children) root.children.forEach(collapse);
 
     // Compute the new height, function counts total children of root node and sets tree height accordingly.
     // This prevents the layout looking squashed when new nodes are made visible or looking sparse when nodes are removed
@@ -472,25 +481,6 @@ function update(source) {
 
     nodeEntry(source);
 
-    // NOTE: not quite sure why this is required...
-    gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) ); //.attr("transform", (d) => `scale(5)` );
-
-    // Change the circle fill depending on whether it has children and is collapsed
-    gnode.select('circle.nodeCircle')
-        .attr('r', nodeRadius)
-        //.style('fill', (d) => d._children ? HAS_CHILDREN_COLOR : 'white')
-        .attr('stroke', (d) => d.selected ? SELECTED_COLOR : 'steelblue')
-        .attr('stroke-width', (d) => d.selected ? 3 : 1.5)
-        .attr('class', (d) => `nodeCircle u-bg-alt-${d.data.color}`);
-
-    gnode.select('text.nodeText')
-        .attr("x", 0)
-        .attr("y", -35 )
-        .attr("dy", "0em")
-        .attr("text-anchor", "middle")
-        .style("fill-opacity", 1);
-
-    //gnode.select('g.node').attr("transform", (d) => `scale(5)` );
 
     // Transition nodes to their new position.
     // NOTE: stretching x-axis
@@ -512,64 +502,46 @@ function update(source) {
     // Update the links…
     var link = svgGroup.selectAll("path.link").data(links, (d) => d.id );
 
-    //linkRadial = d3.linkRadial().angle( (d) => {val = d.x - (d.children ? d.children.x : 0);  return val;}).radius( (d) => d.y );
-    //linkRadial = d3.linkRadial().angle( (d) => d.x).radius( (d) => d.y );
-
     //var linkVertical = d3.linkVertical().x((d) => project(d)[0]).y((d) => project(d)[1]);
 
     /*function linkArc(d) {
-        var dx = d.target.x - d.source.x,
-            dy = d.target.y - d.source.y,
-            dr = Math.sqrt(dx * dx + dy * dy);
-        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
-    }*/
-
-    // NOTE: arc halfway then draw line.
-    /*function linkArc(d) {
-        var dx = d.target.x - d.source.x;
-
-        if (dx == 0)
-            return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`; // line
-
-        var dy = d.target.y - d.source.y,
-        dr = Math.sqrt(dx * dx + dy * dy),
-        sweepFlag = dx > 0;
-
-        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${+sweepFlag} ${d.target.x},${d.target.y}`;
+        // TODO: need to do projections far too
+        var source = project(d.source);
+        var target = project(d.target);
+        return `M${source[0]},${source[1]}L${target[0]},${target[1]}`;
     }*/
 
     function linkArc(d) {
-        var mx = (d.target.x + d.source.x ) / 2,
-            my = (d.target.y + d.source.y) / 2,
-            dx = mx - d.source.x,
-            dy = my - d.source.y,
-            dr = Math.sqrt(dx * dx + dy * dy),
-            sweepFlag = (d.target.x - d.source.x == 0) ? (d.source.x - (d.source.parent ? d.source.parent.x : 0)) < 0 : dx > 0;
+        // TODO: need to do projections far too
+        var source = project(d.source);
+        var target = project(d.target);
 
-        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${sweepFlag ? 0 : 1} ${mx},${my} A${dr},${dr} 0 0,${+sweepFlag} ${d.target.x},${d.target.y}`;
+        var mx = (target[0] + source[0]) / 2,
+            my = (target[1] + source[1]) / 2,
+            dx = mx - source[0],
+            dy = my - source[1],
+            dr = Math.sqrt(dx * dx + dy * dy),
+            sweepFlag = (target[0] - source[0] == 0) ? (source[0] - (d.source.parent ? project(d.source.parent)[0] : 0)) < 0 : dx > 0;
+            //sweepFlag = (d.target.x - d.source.x == 0) ? (d.source.x - (d.source.parent ? d.source.parent.x : 0)) < 0 : dx > 0;
+
+        return `M${source[0]},${source[1]}A${dr},${dr} 0 0,${sweepFlag ? 0 : 1} ${mx},${my} A${dr},${dr} 0 0,${+sweepFlag} ${target[0]},${target[1]}`;
     }
 
     // Enter any new links at the parent's previous position.
     link.enter().insert('path', 'g')
         .attr('class', 'link')
         .attr('d', linkArc)
-        .style('stroke-width', (d) => {
-
-            return `${(maxDepth - d.source.depth) + (d.target.data.children ? d.target.data.children.length : 0)}px`;
-        });
-        //.attr('transform', (d) => `translate(${project(d.target.x, d.target.y)})`);
+        .style('stroke-width', (d) => `${maxDepth - d.source.depth + (d.target.data.children ? d.target.data.children.length : 0)}px`);
 
     // Transition links to their new position.
     link.transition().duration(transitionDuration)
         .delay( (d, i) => i * STAGGERN + Math.abs(d.source.depth - curNode.depth) * STAGGERD )
         .attr('d', linkArc);
-        //.attr('transform', (d) => `translate(${project(d.target.x, d.target.y)})`);
 
     // Transition exiting nodes to the parent's new position.
     link.exit().transition()
-        .duration(transitionDuration)
-        .attr('d', linkArc)
-        //.attr('transform', (d) => `translate(${project(d.source.x, d.source.y)})`)
+        //.duration(transitionDuration)
+        //.attr('d', linkArc)
         .remove();
 
     // Stash the old positions for transition.
@@ -577,19 +549,34 @@ function update(source) {
 }
 
 function nodeEntry(source) {
+    // Toggle children on click.
+    function click(d) {
+        if (d3.event.defaultPrevented) return; // click suppressed
+        toggleChildren(d);
+        updateAndCenter(d);
+    }
+
     // Enter any new nodes at the parent's previous position.
-    var nodeEnter = gnode.enter().insert('g', ':first-child')
+    var nodeEnter = gnode.enter().append('g', ':first-child')
         .attr('class', 'node')
-        .attr("transform", (d) => `translate(${project(d)})` )
+        .attr("transform", (d) => {
+            var scale = (maxDepth - d.depth) / 2 ;
+            return `translate(${project(d)})scale(${scale > 1 ? scale : 1})`;
+        })
         .on('click', click); // TODO: more stuff
 
     nodeEnter.append('circle')
              .attr('class', 'nodeCircle')
-             .attr('r', 1e-6);
-             //.style("fill", (d) => d._children ? "lightsteelblue" : "#fff"); // TODO: fill color for node
+             .attr('r', nodeRadius)
+             .attr('class', (d) => `nodeCircle u-bg-alt-${d.data.color}`);
 
     nodeEnter.append("text")
              .attr('class', 'nodeText')
+             .attr("x", 0)
+             .attr("y", -35 )
+             .attr("dy", "0em")
+             .attr("text-anchor", "middle")
+             .style("fill-opacity", 1)
              .text( (d) => d.data.name );
 
     nodeEnter.append("image")
@@ -688,17 +675,6 @@ function fullpath(d, idx) {
         d.name + '</span>';
 }
 
-/*function radialX() {
-    var angle = d.x - (Math.PI/2), radius = d.y;
-    return radius * Math.cos(angle);
-}
-
-function radialY() {
-    var angle = d.x - (Math.PI/2), radius = d.y;
-    return radius * Math.sin(angle);
-}*/
-
-
 // TODO: implement feature for projection => [d.x,d.y]
 //       and features to turn on this projection
 // TODO: clean-up
@@ -707,10 +683,11 @@ function project(d) {
     return [d.x, d.y];
 }
 
+var c = Math.PI/2; //0.9;
 function radial(x,y) {
     if (y == 0) return [0, 0];
-    //var angle = (d.x * Math.PI)/15 + c, radius = d.y;
-    var angle = x, radius = y;
+    var angle = (x/2) + c, radius = y;
+    //var angle = x, radius = y;
     return [radius * Math.cos(angle), radius * Math.sin(angle)];
 }
 
@@ -723,15 +700,12 @@ function radial(x,y) {
 }*/
 
 function centerNode(source) {
-    selectNode(root);
-    // TODO: !!!
-    //scale = ;
-    //x = -source.x0;
-    //y = -source.y0;
-    //x = x * currentScale + center.x;
-    //y = y * currentScale + center.y;
-    //d3.select("g").transition().duration(transitionDuration).attr('transform', `translate(${x},${y})`);
+    selectNode(source);
+    var x = zoomScale * -source.x0 + center.x,
+        y = zoomScale * -source.y0 + center.y;
+    d3.select("g").transition().duration(transitionDuration).attr('transform', `translate(${x},${y})scale(${zoomScale})`);
     //zoomListener.translate([x, y]);
+    // TODO: https://stackoverflow.com/questions/38534500/d3-js-rewriting-zoom-example-in-version4
 }
 
 // Toggle children function
@@ -740,15 +714,19 @@ function toggleChildren(d) {
         d._children = d.children;
         d.children = null;
     } else if (d._children) {
+        d.collapsed = false;
         d.children = d._children;
         d._children = null;
     }
     return d;
 }
 
-// Toggle children on click.
-function click(d) {
-    if (d3.event.defaultPrevented) return; // click suppressed
-    d = toggleChildren(d);
-    updateAndCenter(d);
+// collapse the node and all it's children
+function collapse(d) {
+    d.collapsed = true;
+    if (d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
+    }
 }

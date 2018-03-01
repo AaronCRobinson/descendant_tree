@@ -124,9 +124,8 @@ body {
 }
 
 .node circle {
-  /*fill: #fff;*/
   stroke: #326B62;
-  stroke-width: 1.5px;
+  /*stroke-width: 1.5px;*/
 }
 
 .node text {
