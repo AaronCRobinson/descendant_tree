@@ -3,13 +3,15 @@ var STAGGERD = 200; // delay for each depth
 var HAS_CHILDREN_COLOR = 'lightsteelblue';
 var SELECTED_COLOR = '#a00';  // color of selected node
 var DURATION = 700; // d3 animation duration
+var CK_API = 'https://api.cryptokitties.co/kitties/';
 
 var treeData; // json data containing tree structure
 var curNode;  // currently selected node
 var transitionDuration;
+var maxDepth = 1; // tracks max depth of tree structure
 
 
-var ck_api = 'https://api.cryptokitties.co/kitties/';
+
 var activityTimeout = 4500;
 var updatePeriod = 3500;
 
@@ -72,10 +74,12 @@ function buildNode(data)
 {
     var node =
     {
-        'id': data['id'],
-        'name': (data['name'] == null) ? "Kitty #" + data['id'] : data['name'],
+        'id': data.id,
+        'name': (data.name == null) ? "Kitty #" + data.id : data.name,
+        'gen': data.generation,
+        'color': data.color,
         'bio': generateBio(data),
-        'image': data['image_url'],
+        'image': data.image_url,
         'jewels': getJewels(data),
         'kids': [] // temp location to avoid empty list bugs]
     }
@@ -84,7 +88,7 @@ function buildNode(data)
     lastActivity = getTimeStamp();
 
     function fetchChildData(child){
-        var url = ck_api + child['id'].toString();
+        var url = `${CK_API}${child['id'].toString()}`;
         (function fetch() {
             $.getJSON(url, function(data) {
                 if (node.kids)
@@ -197,7 +201,8 @@ var updateLoop;
 // !!!START!!!
 $(document).ready(function() {
     // init
-    var url = ck_api + kittyId.toString();
+    // TODO: consider a helper function here
+    var url = `${CK_API}${kittyId.toString()}`;
     initInterface();
 
     // kick off recursive calls and tree updates
@@ -226,13 +231,45 @@ function initInterface() {
 
 }
 
+function getTree() {
+    // helper to count children
+    function childCnt(n) {
+        return n.data.children ? n.data.children.length : 0;
+    }
+
+    /*var sorted = d3.hierarchy(treeData).sort(function(a, b) {
+        var genOrder = d3.ascending( a.data.gen, b.data.gen );
+        if (genOrder != 0) return genOrder;
+
+        return d3.ascending( a.data.name, b.data.name );
+        //return d3.ascending( childCnt(a), childCnt(b) );
+    });*/
+    //console.log(sorted);
+
+    junk = d3.hierarchy(treeData);
+
+    var sorted = d3.hierarchy(treeData)
+        .sum(function(d) { return d.value; })
+        .sort(function(a, b) { return b.height - a.height });
+
+    //junk = sorted;
+
+    //var leftSide = sorted.splice(0, Math.ceil(sorted.length/2));
+    // normal distribution sort
+    //return d3tree(leftSide.concat(sorted.reverse()));
+    return d3tree(sorted);
+}
+
 function treeUpdateLoop() {
     console.log(`Kitty count: ${kittyCnt}`);
 
     // TODO: double check this is necessary
     // update root using a new tree from treeData
-    var newTree = d3tree(d3.hierarchy(treeData));
-    root = Object.assign(newTree, root);
+
+    //d3tree = d3.tree().nodeSize([Math.PI, 125 * maxDepth]);
+    //d3tree = d3.tree().size([2 * Math.PI, 25 * kittyCnt + 100 * maxDepth])
+    var newTree = getTree();
+    root = Object.assign(root, newTree);
 
     if (centerOnUpdate)
         updateAndCenter(root);
@@ -255,7 +292,6 @@ var root;
 var svgGroup
 // Misc. variables
 var i = 0;
-var maxDepth = 0;
 var maxLabelLength = 30;
 var nodeRadius = 29;
 var first = true;
@@ -277,12 +313,11 @@ function drawTree() {
     viewerHeight = $(document).height();
     center = { x: viewerWidth/2, y: viewerHeight/2 };
 
-    //d3tree = d3.tree().size([viewerHeight, viewerWidth]);
-
+    // TODO: Feature -> allow d3.cluster()
     d3tree = d3.tree()
-        .size([2 * Math.PI, viewerWidth])
-        //.nodeSize([500, 00])
-        .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2) / a.depth; });
+        //.size([Math.PI, viewerWidth])
+        .nodeSize([750, 350])
+        .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2.5) / a.depth; });
 
     // Define the zoom function for the zoomable tree
     zoom = () => {
@@ -291,7 +326,7 @@ function drawTree() {
     }
 
     // define the zoomListener which calls the zoom function on the "zoom" event constrained within the scaleExtents
-    zoomListener = d3.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
+    zoomListener = d3.zoom().scaleExtent([0.5, 3]).on("zoom", zoom);
 
     // define the baseSvg, attaching a class for styling and the zoomListener
     var baseSvg = d3.select("#tree-container").append("svg")
@@ -308,10 +343,8 @@ function drawTree() {
 
     baseSvg.on("mousedown", () => setCenterOnUpdate(false));
 
-    console.log(d3.hierarchy(treeData));
-
     // Layout the tree initially and center on the root node.
-    root = d3tree(d3.hierarchy(treeData));
+    root = getTree();
     updateAndCenter(root);
 
     handleNodePic = (n) => {
@@ -436,19 +469,21 @@ function update(source) {
         //d.x /= 2;
     });
 
+    // TODO: I think this counting needs to be fixed...
     gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
 
     nodeEntry(source);
 
     // NOTE: not quite sure why this is required...
-    gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
+    gnode = svgGroup.selectAll("g.node").data(nodes);
 
     // Change the circle fill depending on whether it has children and is collapsed
     gnode.select('circle.nodeCircle')
         .attr('r', nodeRadius)
-        .style('fill', (d) => d._children ? HAS_CHILDREN_COLOR : 'white')
+        //.style('fill', (d) => d._children ? HAS_CHILDREN_COLOR : 'white')
         .attr('stroke', (d) => d.selected ? SELECTED_COLOR : 'steelblue')
-        .attr('stroke-width', (d) => d.selected ? 3 : 1.5);
+        .attr('stroke-width', (d) => d.selected ? 3 : 1.5)
+        .attr('class', (d) => `u-bg-alt-${d.color}`);
 
     gnode.select('text.nodeText')
         .attr("x", 0)
@@ -461,7 +496,7 @@ function update(source) {
     // NOTE: stretching x-axis
     var nodeUpdate = gnode.transition()
         .duration(transitionDuration)
-        .attr("transform", (d) => `translate(${radialPoint(d.x, d.y)})` );
+        .attr("transform", (d) => `translate(${project(d)})` );
 
     // Fade the text in
     nodeUpdate.select("text").style("fill-opacity", 1);
@@ -469,29 +504,67 @@ function update(source) {
     // Transition exiting nodes to the parent's new position.
     var nodeExit = gnode.exit().transition()
         .duration(transitionDuration)
-        .attr('transform', () => `translate(${radialPoint(source.x, source.y)})`).remove();
+        //.attr('transform', () => `translate(${project(source.x, source.y)})`)
+        .remove();
     nodeExit.select('circle').attr('r', 0);
     nodeExit.select('text').style('fill-opacity', 0);
 
     // Update the links…
     var link = svgGroup.selectAll("path.link").data(links, (d) => d.id );
 
-    linkRadial = d3.linkRadial().angle( (d) => d.x ).radius( (d) => d.y );
+    //linkRadial = d3.linkRadial().angle( (d) => {val = d.x - (d.children ? d.children.x : 0);  return val;}).radius( (d) => d.y );
+    //linkRadial = d3.linkRadial().angle( (d) => d.x).radius( (d) => d.y );
+
+    //var linkVertical = d3.linkVertical().x((d) => project(d)[0]).y((d) => project(d)[1]);
+
+    /*function linkArc(d) {
+        var dx = d.target.x - d.source.x,
+            dy = d.target.y - d.source.y,
+            dr = Math.sqrt(dx * dx + dy * dy);
+        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+    }*/
+
+    function linkArc(d) {
+
+        var dx = d.target.x - d.source.x;
+
+        /*if (dx == 0)
+        {
+            return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`; // line
+        }*/
+
+        var dy = d.target.y - d.source.y,
+        dr = Math.sqrt(dx * dx + dy * dy),
+        sweepFlag = dx > 0;
+
+        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${+sweepFlag} ${d.target.x},${d.target.y}`;
+
+        //return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+        //var source = project(d.source);
+        //var target = project(d.target);
+        //return `M${source[0]},${source[1]} ${target[0]},${target[1]}`;
+        //return `M${source[0]} ${source[1]}C${source[0]} ${target[1]}, ${target[0]} ${source[1]}, ${target[0]},${target[1]}`;
+
+    }
 
     // Enter any new links at the parent's previous position.
     link.enter().insert('path', 'g')
         .attr('class', 'link')
         .style('stroke-width', (d) => `${2 * (maxDepth - d.source.depth)}px`)
-        .attr('d', linkRadial);
+        .attr('d', linkArc);
+        //.attr('transform', (d) => `translate(${project(d.target.x, d.target.y)})`);
 
     // Transition links to their new position.
     link.transition().duration(transitionDuration)
-        .delay( (d, i) => i * STAGGERN + Math.abs(d.source.depth - curNode.depth) * STAGGERD ).attr("d", linkRadial);
+        .delay( (d, i) => i * STAGGERN + Math.abs(d.source.depth - curNode.depth) * STAGGERD )
+        .attr('d', linkArc);
+        //.attr('transform', (d) => `translate(${project(d.target.x, d.target.y)})`);
 
     // Transition exiting nodes to the parent's new position.
     link.exit().transition()
         .duration(transitionDuration)
-        .attr("d", linkRadial)
+        .attr('d', linkArc)
+        //.attr('transform', (d) => `translate(${project(d.source.x, d.source.y)})`)
         .remove();
 
     // Stash the old positions for transition.
@@ -502,7 +575,7 @@ function nodeEntry(source) {
     // Enter any new nodes at the parent's previous position.
     var nodeEnter = gnode.enter().insert('g', ':first-child')
         .attr('class', 'node')
-        .attr("transform", (d) => `translate(${radialPoint(d.x, d.y)})` )
+        .attr("transform", (d) => `translate(${project(d)})` )
         .on('click', click); // TODO: more stuff
 
     nodeEnter.append('circle')
@@ -610,10 +683,39 @@ function fullpath(d, idx) {
         d.name + '</span>';
 }
 
-function radialPoint(x, y) {
-    //return [(y = +y) * Math.cos(x -= Math.PI / 2), y * Math.sin(x)];
-    return [(y = +y) * Math.cos(x -= Math.PI / 2), y * Math.sin(x)];
+/*function radialX() {
+    var angle = d.x - (Math.PI/2), radius = d.y;
+    return radius * Math.cos(angle);
 }
+
+function radialY() {
+    var angle = d.x - (Math.PI/2), radius = d.y;
+    return radius * Math.sin(angle);
+}*/
+
+
+// TODO: implement feature for projection => [d.x,d.y]
+//       and features to turn on this projection
+// TODO: clean-up
+function project(d) {
+    //return radial(d.x,d.y);
+    return [d.x, d.y];
+}
+
+function radial(x,y) {
+    if (y == 0) return [0, 0];
+    //var angle = (d.x * Math.PI)/15 + c, radius = d.y;
+    var angle = x, radius = y;
+    return [radius * Math.cos(angle), radius * Math.sin(angle)];
+}
+
+//var c = 0.91; //(4 * Math.PI) / 14;
+/*function project(x, y) {
+    //var angle = ((x + 90) / 180) * Math.PI, radius = y;
+    //var angle = ((x + 4) / 15) * Math.PI, radius = y;
+    var angle = (x * Math.PI)/15 + c, radius = y;
+    return [radius * Math.cos(angle), radius * Math.sin(angle)];
+}*/
 
 function centerNode(source) {
     selectNode(root);
@@ -623,7 +725,7 @@ function centerNode(source) {
     //y = -source.y0;
     //x = x * currentScale + center.x;
     //y = y * currentScale + center.y;
-    //d3.select("g").transition().duration(transitionDuration).attr('transform', `translate(${x},${y})scale(${currentScale})`);
+    //d3.select("g").transition().duration(transitionDuration).attr('transform', `translate(${x},${y})`);
     //zoomListener.translate([x, y]);
 }
 
