@@ -4,6 +4,8 @@ var HAS_CHILDREN_COLOR = 'lightsteelblue';
 var SELECTED_COLOR = '#a00';  // color of selected node
 var DURATION = 700; // d3 animation duration
 var CK_API = 'https://api.cryptokitties.co/kitties/';
+var NODESIZEX = "750";
+var NODESIZEY =  "450";
 
 var treeData; // json data containing tree structure
 var curNode;  // currently selected node
@@ -313,7 +315,7 @@ function drawTree() {
     // TODO: Feature -> allow d3.cluster()
     d3tree = d3.tree()
         //.size([Math.PI, viewerWidth])
-        .nodeSize([750, 450])
+        .nodeSize([NODESIZEX, NODESIZEY])
         .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2.5) / a.depth; });
 
     // Define the zoom function for the zoomable tree
@@ -471,7 +473,7 @@ function update(source) {
     nodeEntry(source);
 
     // NOTE: not quite sure why this is required...
-    gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) );
+    gnode = svgGroup.selectAll("g.node").data(nodes, (d) => d.id || (d.id = ++i) ); //.attr("transform", (d) => `scale(5)` );
 
     // Change the circle fill depending on whether it has children and is collapsed
     gnode.select('circle.nodeCircle')
@@ -487,6 +489,8 @@ function update(source) {
         .attr("dy", "0em")
         .attr("text-anchor", "middle")
         .style("fill-opacity", 1);
+
+    //gnode.select('g.node').attr("transform", (d) => `scale(5)` );
 
     // Transition nodes to their new position.
     // NOTE: stretching x-axis
@@ -535,18 +539,13 @@ function update(source) {
     }*/
 
     function linkArc(d) {
-        /*if (d.target.x - d.source.x == 0)
-            return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`; // line*/
-
         var mx = (d.target.x + d.source.x ) / 2,
             my = (d.target.y + d.source.y) / 2,
             dx = mx - d.source.x,
             dy = my - d.source.y,
             dr = Math.sqrt(dx * dx + dy * dy),
-            //sweepFlag = dx > 0;
-            sweepFlag = (d.target.x - d.source.x == 0) ? d.source.x < 0 : dx > 0;
+            sweepFlag = (d.target.x - d.source.x == 0) ? (d.source.x - (d.source.parent ? d.source.parent.x : 0)) < 0 : dx > 0;
 
-        //return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${+sweepFlag} ${mx},${my}L${d.target.x},${d.target.y}`;
         return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,${sweepFlag ? 0 : 1} ${mx},${my} A${dr},${dr} 0 0,${+sweepFlag} ${d.target.x},${d.target.y}`;
     }
 
