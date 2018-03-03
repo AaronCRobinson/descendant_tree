@@ -28,7 +28,7 @@ getTimeStamp = () => Math.floor(Date.now());
 growl429 = () => {$.growlUI('Still fetching kitties', 'Please be patient!'); console.log("429 error");}
 deepClone = (o) => (o == undefined) ? {} : JSON.parse(JSON.stringify(o));
 
-var prevActivity = false;
+
 stillActive = () => {
     var curActivity = getTimeStamp() - lastActivity < activityTimeout;
     var activity = (curActivity || prevActivity);
@@ -218,9 +218,13 @@ function initInterface() {
 
     // set listeners
     $('input[name="kittyLimit"]').on('change', (e) => kittyLimit = e.currentTarget.value);
-    $('input[name="showJewels"]').on('change', (e) => showJewels = e.currentTarget.checked);
     $('input[name="centerOnUpdate"]').on('change', (e) => centerOnUpdate = e.currentTarget.checked);
     $('input[name="autoCollapse"]').on('change', (e) => autoCollapse = e.currentTarget.checked);
+
+    $('input[name="showJewels"]').on('change', (e) => {
+        showJewels = e.currentTarget.checked;
+        update(root);
+    });
 
     $('button[name="goToKitty"]').on('click', () => {
         var goToID = prompt("Please enter the kitty id: ");
@@ -296,7 +300,7 @@ function checkIfDone() {
 // Here lies modified descendant_tree code
 var d3tree;
 var root;
-var svgGroup
+var svgGroup;
 // Misc. variables
 var i = 0;
 var maxLabelLength = 30;
@@ -330,7 +334,7 @@ function drawTree() {
     }
 
     // define the zoomListener which calls the zoom function on the "zoom" event constrained within the scaleExtents
-    zoomListener = d3.zoom().scaleExtent([0.5, 3]).on("zoom", zoom);
+    zoomListener = d3.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
 
     // define the baseSvg, attaching a class for styling and the zoomListener
     var baseSvg = d3.select("#tree-container").append("svg")
@@ -405,7 +409,7 @@ function drawTree() {
 }
 
 function updateAndCenter(source) {
-    update(source);
+    update(root); // TODO ??? root or source?
     centerNode(source);
 }
 
@@ -532,7 +536,7 @@ function update(source) {
     link.enter().insert('path', 'g')
         .attr('class', 'link')
         .attr('d', linkArc)
-        .style('stroke-width', (d) => `${maxDepth - d.source.depth + (d.target.data.children ? d.target.data.children.length : 0)}px`);
+        .style('stroke-width', (d) => `${Math.sqrt(maxDepth - d.source.depth + (d.target.data.children ? d.target.data.children.length : 1))}px`);
 
     // Transition links to their new position.
     link.transition().duration(transitionDuration)
@@ -561,8 +565,8 @@ function nodeEntry(source) {
     var nodeEnter = gnode.enter().append('g', ':first-child')
         .attr('class', 'node')
         .attr("transform", (d) => {
-            var scale = (maxDepth - d.depth) / 2 ;
-            return `translate(${project(d)})scale(${scale > 1 ? scale : 1})`;
+            //${maxDepth - d.source.depth + (d.target.data.children ? d.target.data.children.length : 0)}
+            return `translate(${project(d)})scale(${Math.sqrt(maxDepth-d.depth + d.children ? d.children.length : 1)})`;
         })
         .on('click', click); // TODO: more stuff
 
@@ -590,7 +594,8 @@ function nodeEntry(source) {
              .attr("width", 85)
              .attr("height", 85);
 
-    if (!showJewels) return;
+    // TODO: fix -> showJewels
+    //if (!showJewels) return;
 
     // !*!*!*!*! Diamond (top left) !*!*!*!*!
     var diamonds = nodeEnter.filter( (d) => d.data.jewels.diamond.length > 0);
