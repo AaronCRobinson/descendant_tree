@@ -491,7 +491,7 @@ function update(source) {
     // NOTE: stretching x-axis
     var nodeUpdate = gnode.transition()
         .duration(transitionDuration)
-        .attr("transform", (d) => `translate(${project(d)})` );
+        .attr("transform", (d) => `translate(${project(d)})scale(${2*Math.sqrt(maxDepth-d.depth + d.children ? d.children.length : 1)})`);
 
     // Fade the text in
     nodeUpdate.select("text").style("fill-opacity", 1);
@@ -566,7 +566,7 @@ function nodeEntry(source) {
         .attr('class', 'node')
         .attr("transform", (d) => {
             //${maxDepth - d.source.depth + (d.target.data.children ? d.target.data.children.length : 0)}
-            return `translate(${project(d)})scale(${Math.sqrt(maxDepth-d.depth + d.children ? d.children.length : 1)})`;
+            return `translate(${project(d)})scale(${2*Math.sqrt(maxDepth-d.depth + d.children ? d.children.length : 1)})`;
         })
         .on('click', click); // TODO: more stuff
 
