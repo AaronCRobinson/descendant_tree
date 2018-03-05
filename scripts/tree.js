@@ -36,7 +36,34 @@ stillActive = () => {
     return activity;
 }
 
-var kittyId = prompt("Please enter the kitty id: ", DEFAULTKITTYID);
+// TODO: redesign
+var kittyId;
+function GetKittyId()
+{
+    // check if kitty id already in url
+    var urlData = {};
+    var temp = window.location.href.split("?");
+    if (temp.length > 1)
+        urlData = Ext.urlDecode(temp[1]);
+    if ('kid' in urlData)
+        kittyId = urlData['kid'];
+    else
+    {
+        kittyId = prompt("Please enter the kitty id: ", DEFAULTKITTYID);
+        updateURL();
+    }
+}
+GetKittyId();
+
+function updateURL() {
+    console.log("bang");
+    if (history.pushState) {
+        var urlData = Ext.urlEncode({'kid': kittyId});
+        var newurl =  `${window.location.protocol}//${window.location.host}${window.location.pathname}?${urlData}`;
+        window.history.pushState({path:newurl},'',newurl);
+    }
+}
+
 var kittyCnt = 0;
 var kittyLimit = 2500;
 var lastActivity = getTimeStamp();
