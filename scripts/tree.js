@@ -56,7 +56,6 @@ function GetKittyId()
 GetKittyId();
 
 function updateURL() {
-    console.log("bang");
     if (history.pushState) {
         var urlData = Ext.urlEncode({'kid': kittyId});
         var newurl =  `${window.location.protocol}//${window.location.host}${window.location.pathname}?${urlData}`;
